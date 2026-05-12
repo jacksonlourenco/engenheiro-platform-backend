@@ -1,0 +1,9 @@
+# Until you have a domain, this will serve HTTP on port 80.
+# After you buy a domain and point DNS to your server, replace ":80" with "seu-dominio.com"
+# and Caddy will automatically provision HTTPS certificates.
+
+:80 {
+  encode gzip
+  reverse_proxy api:3000
+}
+

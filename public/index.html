@@ -1,0 +1,177 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Engenheiro Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="header site-header" id="site-header">
+      <a class="logo-link" href="/">
+        <img class="logo-image" src="images/Logo_Igor.png" alt="Engenheiro Platform" />
+        <span class="logo-text">Engenheiro Platform</span>
+      </a>
+      <button class="btn ghost menu-btn" id="mobile-menu" type="button" aria-expanded="false" aria-controls="site-nav">
+        Menu
+      </button>
+      <nav class="nav site-nav" id="site-nav">
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#services">Services</a>
+        <a href="#blog">Blog</a>
+        <a href="#contacts">Contacts</a>
+      </nav>
+      <div class="header-actions">
+        <button class="btn ghost" id="open-login" type="button">Login</button>
+        <button class="btn primary" id="open-auth" type="button">Cadastrar</button>
+      </div>
+    </header>
+
+    <main class="site-main">
+      <section id="home" class="hero">
+        <div class="hero-content">
+          <p class="eyebrow" id="hero-eyebrow">Projetos precisos. Resultados solidos.</p>
+          <h1 id="hero-title">Engenharia que transforma decisoes em seguranca e valor.</h1>
+          <p class="lead" id="hero-lead">
+            Da vistoria tecnica ao acompanhamento de obra, criamos solucoes objetivas para quem precisa
+            de precisao, agilidade e confianca.
+          </p>
+          <div class="hero-actions">
+            <button class="btn primary" id="cta-register">Quero me cadastrar</button>
+            <button class="btn ghost" id="cta-login">Ja tenho conta</button>
+          </div>
+        </div>
+        <div class="hero-visual" id="hero-image" aria-label="Imagem sobre engenharia">
+          <div class="hero-card">
+            <span>Engenharia Civil & Estrutural</span>
+            <strong>Projetos + Laudos + Consultoria</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" class="section">
+        <div class="section-head">
+          <h2>About</h2>
+          <p id="about-intro">Conheca o engenheiro e a abordagem tecnica aplicada a cada projeto.</p>
+        </div>
+        <div class="carousel" data-carousel="about">
+          <button class="carousel-btn" data-prev></button>
+          <div class="carousel-track" id="about-cards"></div>
+          <button class="carousel-btn" data-next></button>
+        </div>
+      </section>
+
+      <section id="services" class="section alt">
+        <div class="section-head">
+          <h2>Services</h2>
+          <p id="services-intro">Servicos essenciais para obras, reformas e regularizacoes.</p>
+        </div>
+        <div class="carousel" data-carousel="services">
+          <button class="carousel-btn" data-prev></button>
+          <div class="carousel-track" id="services-cards"></div>
+          <button class="carousel-btn" data-next></button>
+        </div>
+      </section>
+
+      <section id="blog" class="section">
+        <div class="section-head">
+          <h2>Blog</h2>
+          <p id="blog-intro">Conteudos em video sobre engenharia, seguranca e boas praticas.</p>
+        </div>
+        <div class="video-grid" id="blog-videos"></div>
+      </section>
+    </main>
+
+    <footer id="contacts" class="footer">
+      <div>
+        <h3>Contacts</h3>
+        <p>Email: <span id="contact-email">contato@engenheiroplatform.com</span></p>
+        <p>Telefone: <span id="contact-phone">(11) 99999-9999</span></p>
+      </div>
+      <div class="footer-meta">
+        <div id="contact-address">Rua Exemplo, 123 - Sao Paulo, SP</div>
+        <div id="contact-hours">Atendimento: Seg a Sex, 8h - 18h</div>
+        <div>Engenheiro Platform</div>
+      </div>
+    </footer>
+
+    <div class="modal" id="auth-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close></div>
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <div class="modal-head">
+          <h3 id="auth-title">Criar conta</h3>
+          <button class="btn icon" data-close type="button" aria-label="Fechar">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M6 18L18 6M6 6l12 12"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="register">Cadastro</button>
+          <button class="tab" data-tab="login">Login</button>
+          <button class="tab" data-tab="reset">Reset</button>
+        </div>
+        <form id="register-form" class="form">
+          <label>
+            Nome completo
+            <input type="text" name="name" required />
+          </label>
+          <label>
+            Email
+            <input type="email" name="email" required />
+          </label>
+          <label>
+            CPF (apenas numeros)
+            <input type="text" name="cpf" maxlength="11" inputmode="numeric" required />
+          </label>
+          <label>
+            Telefone (DDD + 9 numeros)
+            <input type="text" name="phone" maxlength="11" inputmode="numeric" required />
+          </label>
+          <label>
+            Senha
+            <input type="password" name="password" required minlength="6" />
+          </label>
+          <button class="btn primary" type="submit">Cadastrar</button>
+        </form>
+        <form id="login-form" class="form hidden">
+          <label>
+            Email ou CPF
+            <input type="text" name="identifier" required />
+          </label>
+          <label>
+            Senha
+            <input type="password" name="password" required />
+          </label>
+          <button class="btn primary" type="submit">Entrar</button>
+          <button class="btn link" type="button" id="forgot-password">Esqueci minha senha</button>
+        </form>
+        <form id="reset-form" class="form hidden">
+          <label>
+            Email
+            <input type="email" name="email" required />
+          </label>
+          <button class="btn primary" type="submit">Enviar link de reset</button>
+        </form>
+        <p class="form-status" id="auth-status"></p>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
+

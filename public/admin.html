@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Painel Admin - Engenheiro Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="header">
+      <a class="logo-link" href="/">
+        <img class="logo-image" src="images/Logo_Igor.png" alt="Engenheiro Platform" />
+        <span class="logo-text">Engenheiro Platform - Admin</span>
+      </a>
+      <nav class="nav">
+        <a href="/">Voltar</a>
+      </nav>
+      <button class="btn ghost" id="logout">Sair</button>
+    </header>
+
+    <main class="section admin-layout">
+      <aside class="admin-sidebar">
+        <button class="admin-nav-item active" type="button" data-tab="landing">Landing</button>
+        <button class="admin-nav-item" type="button" data-tab="users">Usuarios</button>
+        <button class="admin-nav-item" type="button" data-tab="discounts">Descontos</button>
+        <button class="admin-nav-item" type="button" data-tab="budgets">Orcamentos</button>
+        <button class="admin-nav-item" type="button" data-tab="budget-settings">Config Orcamento</button>
+      </aside>
+
+      <div class="admin-content">
+        <section class="admin-view" id="view-landing" data-view="landing">
+          <div class="section-head">
+            <h2>Landing page</h2>
+            <p>Configure cada sessao separadamente.</p>
+          </div>
+
+          <div class="card">
+            <details open>
+              <summary>Home</summary>
+              <form class="form" id="landing-form">
+            <label>
+              Hero - Eyebrow
+              <input type="text" name="heroEyebrow" />
+            </label>
+            <label>
+              Hero - Titulo
+              <input type="text" name="heroTitle" />
+            </label>
+            <label>
+              Hero - Texto
+              <textarea name="heroLead" rows="3"></textarea>
+            </label>
+            <label>
+              Hero - Imagem (URL direta, recomendado 1600x900)
+              <input type="text" name="heroImage" />
+            </label>
+            <label>
+              CTA Cadastro
+              <input type="text" name="ctaRegister" />
+            </label>
+            <label>
+              CTA Login
+              <input type="text" name="ctaLogin" />
+            </label>
+
+            <details>
+              <summary>About</summary>
+              <label>
+                About - Intro
+                <textarea name="aboutIntro" rows="2"></textarea>
+              </label>
+              <label>
+                About - Card 1 titulo
+                <input type="text" name="aboutTitle1" />
+              </label>
+              <label>
+                About - Card 1 texto
+                <textarea name="aboutText1" rows="2"></textarea>
+              </label>
+              <label>
+                About - Card 2 titulo
+                <input type="text" name="aboutTitle2" />
+              </label>
+              <label>
+                About - Card 2 texto
+                <textarea name="aboutText2" rows="2"></textarea>
+              </label>
+              <label>
+                About - Card 3 titulo
+                <input type="text" name="aboutTitle3" />
+              </label>
+              <label>
+                About - Card 3 texto
+                <textarea name="aboutText3" rows="2"></textarea>
+              </label>
+            </details>
+
+            <details>
+              <summary>Services</summary>
+              <label>
+                Services - Intro
+                <textarea name="servicesIntro" rows="2"></textarea>
+              </label>
+              <label>
+                Services - Background imagem (URL direta, recomendado 1600x900)
+                <input type="text" name="servicesBg" />
+              </label>
+              <label>
+                Services - Opacidade do fundo (0 a 1)
+                <input type="number" name="servicesBgOpacity" step="0.05" min="0" max="1" />
+              </label>
+              <div id="services-cards"></div>
+              <button class="btn add" type="button" id="add-service-card">Adicionar card</button>
+            </details>
+
+            <details>
+              <summary>Blog</summary>
+              <label>
+                Blog - Intro
+                <textarea name="blogIntro" rows="2"></textarea>
+              </label>
+              <label>
+                Blog - Video 1 URL (YouTube)
+                <input type="text" name="video1" />
+              </label>
+              <label>
+                Blog - Video 2 URL (YouTube)
+                <input type="text" name="video2" />
+              </label>
+              <label>
+                Blog - Video 3 URL (YouTube)
+                <input type="text" name="video3" />
+              </label>
+            </details>
+
+            <details>
+              <summary>Contacts</summary>
+              <label>
+                Contato - Email
+                <input type="text" name="contactEmail" />
+              </label>
+              <label>
+                Contato - Telefone
+                <input type="text" name="contactPhone" />
+              </label>
+              <label>
+                Contato - Endereco
+                <input type="text" name="contactAddress" />
+              </label>
+              <label>
+                Contato - Horario
+                <input type="text" name="contactHours" />
+              </label>
+            </details>
+
+            <button class="btn primary" type="submit">Salvar alteracoes</button>
+            <p class="form-status" id="admin-message"></p>
+          </form>
+        </details>
+          </div>
+        </section>
+
+        <section class="admin-view hidden" id="view-users" data-view="users">
+          <div class="section-head">
+            <h2>Usuarios</h2>
+            <p>Busque por email ou CPF e gerencie contratos.</p>
+          </div>
+          <div class="card">
+            <form class="form" id="user-search-form">
+              <label>
+                Email ou CPF
+                <input type="text" name="query" />
+              </label>
+              <button class="btn primary" type="submit">Buscar</button>
+            </form>
+            <div class="user-list" id="user-list"></div>
+          </div>
+        </section>
+
+        <section class="admin-view hidden" id="view-discounts" data-view="discounts">
+          <div class="section-head">
+            <h2>Descontos</h2>
+            <p>Defina desconto por usuario com inicio e fim de validade.</p>
+          </div>
+          <div class="card">
+            <div class="field-group" style="margin-bottom: 16px;">
+              <h3>Desconto global (todos os usuarios)</h3>
+              <p class="mini-help">Aplica para todos os usuarios que nao tenham um desconto individual ativo.</p>
+              <form class="form" id="global-discount-form">
+                <div class="two-col">
+                  <label>
+                    Percentual (0 a 100)
+                    <input type="number" min="0" max="100" step="0.5" name="percent" />
+                  </label>
+                  <label>
+                    Inicio (opcional)
+                    <input type="datetime-local" name="startsAt" />
+                  </label>
+                  <label>
+                    Fim (opcional)
+                    <input type="datetime-local" name="endsAt" />
+                  </label>
+                </div>
+                <div class="discount-actions" style="margin-top: 10px;">
+                  <button class="btn primary" type="submit">Salvar desconto global</button>
+                  <button class="btn remove" type="button" id="clear-global-discount">Remover</button>
+                  <span class="form-status" id="global-discount-message"></span>
+                </div>
+              </form>
+            </div>
+
+            <form class="form" id="discount-search-form">
+              <label>
+                Email ou CPF
+                <input type="text" name="query" />
+              </label>
+              <button class="btn primary" type="submit">Buscar</button>
+            </form>
+            <div class="user-list" id="discount-list"></div>
+            <p class="form-status" id="discount-message"></p>
+          </div>
+        </section>
+
+        <section class="admin-view hidden" id="view-budgets" data-view="budgets">
+          <div class="section-head">
+            <h2>Orcamentos</h2>
+            <p>Veja todos os orcamentos e os contatos do usuario.</p>
+          </div>
+          <div class="card">
+            <form class="form" id="budget-search-form">
+              <label>
+                ID do orcamento, Email, CPF ou nome (opcional)
+                <input type="text" name="query" />
+              </label>
+              <button class="btn primary" type="submit">Buscar</button>
+            </form>
+            <div class="pending-list" id="budget-list"></div>
+            <p class="form-status" id="budget-admin-message"></p>
+          </div>
+        </section>
+
+        <section class="admin-view hidden" id="view-budget-settings" data-view="budget-settings">
+          <div class="section-head">
+            <h2>Configuracao do orcamento</h2>
+            <p>Edite textos e valores do calculo sem precisar mexer em JSON.</p>
+          </div>
+          <div class="card">
+            <form class="form" id="budget-settings-form">
+              <div class="admin-grid">
+                <div class="field-group">
+                  <h3>Precos base</h3>
+                  <p class="mini-help">Valores base usados no calculo (ex.: R$/m²). Se ficar em branco, usamos o padrao do sistema.</p>
+                  <div class="two-col">
+                    <label>Estrutural (R$/m²)<input type="number" step="0.001" min="0" name="base_estrutural" /></label>
+                    <label>Hidraulico (R$/m²)<input type="number" step="0.001" min="0" name="base_hidraulico" /></label>
+                    <label>Sanitario (R$/m²)<input type="number" step="0.001" min="0" name="base_sanitario" /></label>
+                    <label>Pluvial (R$/m²)<input type="number" step="0.001" min="0" name="base_pluvial" /></label>
+                    <label>Eletrico (R$/m²)<input type="number" step="0.001" min="0" name="base_eletrico" /></label>
+                    <label>Incendio (R$/m²)<input type="number" step="0.001" min="0" name="base_incendio" /></label>
+                    <label>Pacote HSP (R$/m²)<input type="number" step="0.001" min="0" name="base_pacoteHSP" /></label>
+                    <label>Pacote Completo (R$/m²)<input type="number" step="0.001" min="0" name="base_pacoteCompleto" /></label>
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <h3>Fatores (multiplicadores)</h3>
+                  <p class="mini-help">Multiplicadores aplicados quando o usuario marca opcoes especificas (ex.: gerador aumenta o custo).</p>
+                  <div class="two-col">
+                    <label>Boiler eletrico<input type="number" step="0.001" min="0" name="f_boilerEletrico" /></label>
+                    <label>Poco artesiano<input type="number" step="0.001" min="0" name="f_pocoArtesiano" /></label>
+                    <label>Padrao especial (concessionaria)<input type="number" step="0.001" min="0" name="f_concessionariaPadraoEspecial" /></label>
+                    <label>Fossa septica<input type="number" step="0.001" min="0" name="f_fossaSeptica" /></label>
+                    <label>Drenagem especifica<input type="number" step="0.001" min="0" name="f_drenagemEspecifica" /></label>
+                    <label>Banheira<input type="number" step="0.001" min="0" name="f_banheira" /></label>
+                    <label>Equipamento especial<input type="number" step="0.001" min="0" name="f_equipamentoEspecial" /></label>
+                    <label>Gerador<input type="number" step="0.001" min="0" name="f_gerador" /></label>
+                    <label>Subestacao<input type="number" step="0.001" min="0" name="f_subestacao" /></label>
+                    <label>Norma condominio<input type="number" step="0.001" min="0" name="f_normaCondominio" /></label>
+                    <label>Aquecimento solar<input type="number" step="0.001" min="0" name="f_aquecimentoSolar" /></label>
+                    <label>Spa<input type="number" step="0.001" min="0" name="f_spa" /></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-group" style="margin-top: 18px;">
+                <h3>Faixas de area</h3>
+                <p class="mini-help">Defina como o valor muda por faixa de area (m²). O sistema procura a faixa onde a area se encaixa.</p>
+                <div id="area-factors-table" class="table"></div>
+                <button class="btn add" type="button" id="add-area-factor">Adicionar faixa</button>
+              </div>
+
+              <div class="field-group" style="margin-top: 18px;">
+                <h3>Textos das perguntas</h3>
+                <p class="mini-help">Aqui voce altera o texto mostrado ao usuario. Se deixar em branco, usamos o texto padrao.</p>
+                <div class="two-col">
+                  <label>
+                    Perfil
+                    <select name="q_profile" id="q-profile">
+                      <option value="leigo">Leigo</option>
+                      <option value="tecnico">Tecnico</option>
+                    </select>
+                  </label>
+                </div>
+                <div id="budget-questions-editor"></div>
+              </div>
+
+              <details style="margin-top: 18px;">
+                <summary>Modo avancado (JSON)</summary>
+                <p class="mini-help">Opcional: para casos especiais. Se nao souber, ignore.</p>
+                <label>
+                  JSON de configuracao
+                  <textarea name="content" rows="16" spellcheck="false"></textarea>
+                </label>
+                <label>
+                  Variaveis efetivas (calculadas)
+                  <pre class="code-block" id="budget-settings-effective"></pre>
+                </label>
+              </details>
+
+              <button class="btn primary" type="submit">Salvar configuracao</button>
+              <p class="form-status" id="budget-settings-message"></p>
+            </form>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="/admin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,137 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard - Engenheiro Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="header">
+      <a class="logo-link" href="/">
+        <img class="logo-image" src="images/Logo_Igor.png" alt="Engenheiro Platform" />
+        <span class="logo-text">Engenheiro Platform</span>
+      </a>
+      <nav class="nav">
+        <a href="/">Voltar</a>
+      </nav>
+      <button class="btn ghost" id="logout">Sair</button>
+    </header>
+
+    <main class="section">
+      <div class="section-head">
+        <h2>Dashboard</h2>
+        <p>Complete seu cadastro para continuar.</p>
+      </div>
+
+      <div class="card highlight-card" id="profile-card">
+        <h3>Meu cadastro</h3>
+        <p id="profile-status">Carregando...</p>
+        <form class="form" id="profile-form">
+          <label>
+            CPF
+            <input type="text" name="cpf" disabled />
+          </label>
+          <label>
+            Telefone (DDD + 9 digitos)
+            <input type="text" name="phone" disabled />
+          </label>
+          <label>
+            CEP
+            <div class="inline-field">
+              <input type="text" name="cep" inputmode="numeric" placeholder="Somente numeros" disabled />
+              <button class="btn" type="button" id="cep-lookup" disabled>Buscar</button>
+            </div>
+          </label>
+          <label>
+            Endereco
+            <input type="text" name="address" disabled />
+          </label>
+          <label>
+            Numero
+            <input type="text" name="addressNumber" disabled />
+          </label>
+          <label>
+            Sexo
+            <select name="gender" disabled>
+              <option value="">Selecione</option>
+              <option value="masculino">Masculino</option>
+              <option value="feminino">Feminino</option>
+              <option value="outro">Outro</option>
+            </select>
+          </label>
+          <label>
+            Data de nascimento
+            <input type="date" name="birthDate" disabled />
+          </label>
+          <label>
+            Estado civil
+            <select name="maritalStatus" disabled>
+              <option value="">Selecione</option>
+              <option value="solteiro">Solteiro</option>
+              <option value="casado">Casado</option>
+              <option value="divorciado">Divorciado</option>
+              <option value="viuvo">Viuvo</option>
+            </select>
+          </label>
+          <label>
+            Numero de filhos
+            <input type="number" name="childrenCount" min="0" disabled />
+          </label>
+          <div class="form-actions">
+            <button class="btn edit" type="button" id="edit-profile">Editar</button>
+            <button class="btn primary" type="submit" id="save-profile" disabled>Salvar cadastro</button>
+          </div>
+          <p class="form-status" id="profile-message"></p>
+        </form>
+      </div>
+
+      <div class="card" id="budget-card">
+        <h3>Orcamento</h3>
+        <p id="budget-message">Para seguir com o orcamento, complete seu cadastro.</p>
+        <button class="btn primary" id="budget-button" disabled>Realizar orcamento</button>
+      </div>
+
+      <div class="card" id="pending-budgets">
+        <h3>Orcamentos pendentes</h3>
+        <div class="pending-list" id="pending-list"></div>
+      </div>
+    </main>
+
+    <div class="modal" id="budget-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-budget></div>
+      <div class="modal-card modal-wide" role="dialog" aria-modal="true">
+        <div class="modal-head">
+          <div>
+            <h3>Orcamento</h3>
+            <div class="budget-progress" id="budget-progress"></div>
+          </div>
+          <button class="btn icon" data-close-budget>&times;</button>
+        </div>
+        <div class="budget-step" id="budget-step"></div>
+        <div class="budget-actions budget-nav">
+          <button class="btn" id="budget-back" type="button" disabled>Voltar</button>
+          <button class="btn primary" id="budget-next" disabled>Proxima</button>
+        </div>
+        <div class="budget-result hidden" id="budget-result">
+          <h4>Resumo do orcamento</h4>
+          <p id="budget-total"></p>
+          <div class="budget-actions budget-result-actions">
+            <button class="btn primary" id="budget-accept">Concordo com o orcamento</button>
+            <button class="btn remove" id="budget-decline">Nao concordo</button>
+          </div>
+          <p class="form-status" id="budget-status"></p>
+        </div>
+      </div>
+    </div>
+
+    <script src="/dashboard.js?v=20260414"></script>
+  </body>
+</html>
+

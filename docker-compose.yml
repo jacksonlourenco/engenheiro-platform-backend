@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-engenheiro_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-engenheiro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-engenheiro_password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-engenheiro}:${POSTGRES_PASSWORD:-engenheiro_password}@db:5432/${POSTGRES_DB:-engenheiro_platform}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      ADMIN_NOTIFY_EMAIL: ${ADMIN_NOTIFY_EMAIL:-}
+
+      # Mailjet (optional)
+      MJ_APIKEY_PUBLIC: ${MJ_APIKEY_PUBLIC:-}
+      MJ_APIKEY_PRIVATE: ${MJ_APIKEY_PRIVATE:-}
+      MJ_SENDER_EMAIL: ${MJ_SENDER_EMAIL:-}
+      MJ_SENDER_NAME: ${MJ_SENDER_NAME:-}
+
+      # SendGrid (optional) - only used if key starts with SG.
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SENDGRID_SENDER_EMAIL: ${SENDGRID_SENDER_EMAIL:-}
+      SENDGRID_SENDER_NAME: ${SENDGRID_SENDER_NAME:-}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+

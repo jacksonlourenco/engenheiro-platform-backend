@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.codex
+npm-debug.log
+*.log
+postman
+docs
+.env
+

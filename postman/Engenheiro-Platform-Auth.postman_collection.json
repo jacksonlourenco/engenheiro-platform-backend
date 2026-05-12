@@ -1,0 +1,310 @@
+﻿{
+  "info": {
+    "name": "Engenheiro Platform - API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Collection para validar auth, dashboard, orcamento e admin."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "resetToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "budgetId", "value": "1" },
+    { "key": "adminEmail", "value": "" },
+    { "key": "sendgridTestEmail", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Register",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Joao da Silva\",\n  \"email\": \"joao@email.com\",\n  \"cpf\": \"12345678901\",\n  \"phone\": \"11999998888\",\n  \"password\": \"123456\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Login (email ou cpf)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"joao@email.com\",\n  \"password\": \"123456\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "const data = pm.response.json();",
+              "if (data.token) {",
+              "  pm.collectionVariables.set('token', data.token);",
+              "}",
+              "if (data.user && data.user.id) {",
+              "  pm.collectionVariables.set('userId', data.user.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Auth - Forgot Password",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"joao@email.com\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Reset Password",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"nova_senha\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Me",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Update Profile",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"address\": \"Rua Exemplo 123\",\n  \"gender\": \"masculino\",\n  \"birthDate\": \"1990-01-01\",\n  \"maritalStatus\": \"solteiro\",\n  \"childrenCount\": 0\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Auth - Admin Me",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/auth/admin/me", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "me"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Budget - Questions",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": {
+          "raw": "{{baseUrl}}/budget/questions",
+          "host": ["{{baseUrl}}"],
+          "path": ["budget", "questions"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Budget - Calculate",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"profile\": \"leigo\",\n  \"structural\": {\n    \"area\": 180,\n    \"lajePiso\": \"SIM\",\n    \"lajeCobertura\": \"NÃO\",\n    \"vaoMaior5\": \"NÃO\",\n    \"vaoMaior8\": \"NÃO\",\n    \"piscina\": \"NÃO\",\n    \"balancoMaior1\": \"NÃO\",\n    \"fundacaoRasaEspecial\": \"NÃO\",\n    \"terrenoDeclive\": \"NÃO\",\n    \"elevador\": \"NÃO\",\n    \"muroArrimo\": \"NÃO\",\n    \"memorialDescritivo\": \"SIM\",\n    \"memorialCalculo\": \"SIM\"\n  },\n  \"complementary\": {\n    \"area\": 180,\n    \"abastecimento\": \"CONCESSIONÁRIA\",\n    \"esgotamento\": \"REDE\",\n    \"pluvial\": \"SOLO\",\n    \"normaCondominio\": \"NÃO\",\n    \"contratar\": {\n      \"hidraulico\": \"SIM\",\n      \"sanitario\": \"SIM\",\n      \"pluvial\": \"SIM\",\n      \"eletrico\": \"SIM\",\n      \"incendio\": \"NÃO\"\n    },\n    \"boilerEletrico\": \"NÃO\",\n    \"banheira\": \"NÃO\",\n    \"spa\": \"NÃO\",\n    \"aquecimentoSolar\": \"NÃO\",\n    \"arCondicionadoQtd\": 4,\n    \"equipamentoEspecial\": \"NÃO\",\n    \"gerador\": \"NÃO\",\n    \"subestacao\": \"NÃO\",\n    \"concessionariaPadraoEspecial\": \"NÃO\"\n  }\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/budget/calculate", "host": ["{{baseUrl}}"], "path": ["budget", "calculate"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Budgets - List",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/budgets", "host": ["{{baseUrl}}"], "path": ["budgets"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Budgets - Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"profile\": \"leigo\",\n  \"answers\": {\n    \"structural\": {\n      \"area\": 180,\n      \"lajePiso\": \"SIM\",\n      \"lajeCobertura\": \"NÃO\",\n      \"vaoMaior5\": \"NÃO\",\n      \"vaoMaior8\": \"NÃO\",\n      \"piscina\": \"NÃO\",\n      \"balancoMaior1\": \"NÃO\",\n      \"fundacaoRasaEspecial\": \"NÃO\",\n      \"terrenoDeclive\": \"NÃO\",\n      \"elevador\": \"NÃO\",\n      \"muroArrimo\": \"NÃO\",\n      \"memorialDescritivo\": \"SIM\",\n      \"memorialCalculo\": \"SIM\"\n    },\n    \"complementary\": {\n      \"area\": 180,\n      \"abastecimento\": \"CONCESSIONÁRIA\",\n      \"esgotamento\": \"REDE\",\n      \"pluvial\": \"SOLO\",\n      \"normaCondominio\": \"NÃO\",\n      \"contratar\": {\n        \"hidraulico\": \"SIM\",\n        \"sanitario\": \"SIM\",\n        \"pluvial\": \"SIM\",\n        \"eletrico\": \"SIM\",\n        \"incendio\": \"NÃO\"\n      },\n      \"boilerEletrico\": \"NÃO\",\n      \"banheira\": \"NÃO\",\n      \"spa\": \"NÃO\",\n      \"aquecimentoSolar\": \"NÃO\",\n      \"arCondicionadoQtd\": 4,\n      \"equipamentoEspecial\": \"NÃO\",\n      \"gerador\": \"NÃO\",\n      \"subestacao\": \"NÃO\",\n      \"concessionariaPadraoEspecial\": \"NÃO\"\n    }\n  },\n  \"result\": {\n    \"structural\": {\n      \"honorarioTotal\": 1000\n    },\n    \"complementary\": {\n      \"melhorOpcao\": 500\n    },\n    \"totalSuggested\": 1500\n  },\n  \"accepted\": false\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/budgets", "host": ["{{baseUrl}}"], "path": ["budgets"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Budgets - Accept",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"accepted\": true\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/budgets/1", "host": ["{{baseUrl}}"], "path": ["budgets", "1"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Landing (Get)",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/admin/landing", "host": ["{{baseUrl}}"], "path": ["admin", "landing"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Landing (Update)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"home\": {\n    \"headline\": \"Engenharia de qualidade\",\n    \"subtitle\": \"Projetos e obras com acompanhamento completo\",\n    \"ctaText\": \"Quero me cadastrar\",\n    \"ctaLink\": \"/register\",\n    \"image\": \"https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=80\"\n  },\n  \"about\": {\n    \"title\": \"Sobre o Engenheiro\",\n    \"content\": \"Texto institucional do engenheiro\",\n    \"images\": [\n      \"https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=900&q=80\"\n    ]\n  },\n  \"services\": {\n    \"title\": \"Servicos\",\n    \"subtitle\": \"Solucoes completas\",\n    \"backgroundImage\": \"https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80\",\n    \"backgroundOpacity\": 0.35,\n    \"cards\": [\n      { \"title\": \"Estrutural\", \"description\": \"Projeto estrutural completo\", \"image\": \"https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80\" },\n      { \"title\": \"Hidraulica\", \"description\": \"Instalacoes hidraulicas\", \"image\": \"https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80\" },\n      { \"title\": \"Eletrica\", \"description\": \"Projeto eletrico\", \"image\": \"https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=800&q=80\" }\n    ]\n  },\n  \"blog\": {\n    \"title\": \"Blog\",\n    \"videos\": [\n      \"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"\n    ]\n  },\n  \"contacts\": {\n    \"title\": \"Contato\",\n    \"address\": \"Rua Exemplo, 123\",\n    \"phone\": \"(11) 99999-8888\",\n    \"email\": \"contato@engenheiro.com\"\n  }\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/admin/landing", "host": ["{{baseUrl}}"], "path": ["admin", "landing"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Search Users",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/users?search=joao",
+          "host": ["{{baseUrl}}"],
+          "path": ["admin", "users"],
+          "query": [ { "key": "search", "value": "joao" } ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Toggle Contract",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"contractActive\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/admin/users/{{userId}}/contract",
+          "host": ["{{baseUrl}}"],
+          "path": ["admin", "users", "{{userId}}", "contract"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Test Email",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{adminEmail}}\",\n  \"subject\": \"Teste Mailjet\",\n  \"text\": \"Se voce recebeu este e-mail, o Mailjet esta configurado corretamente.\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/admin/test-email", "host": ["{{baseUrl}}"], "path": ["admin", "test-email"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Test Email (SendGrid)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"toEmail\": \"{{sendgridTestEmail}}\",\n  \"subject\": \"Teste SendGrid\",\n  \"text\": \"Se voce recebeu este email, o SendGrid esta OK.\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/admin/test-email", "host": ["{{baseUrl}}"], "path": ["admin", "test-email"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Resend Budget Accepted Email",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/admin/budgets/{{budgetId}}/notify",
+          "host": ["{{baseUrl}}"],
+          "path": ["admin", "budgets", "{{budgetId}}", "notify"]
+        }
+      },
+      "response": []
+    }
+  ]
+}
+
