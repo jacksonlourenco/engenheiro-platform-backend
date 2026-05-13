@@ -233,13 +233,62 @@ function normalizeYoutubeUrl(url) {
   return trimmed;
 }
 
-async function loadLandingContent() {
-  const response = await fetch("/admin/landing");
-  if (!response.ok) {
-    return;
-  }
+const defaultLandingContent = {
+  hero: {
+    eyebrow: "Projetos precisos. Resultados solidos.",
+    title: "Engenharia que transforma decisoes em seguranca e valor.",
+    lead:
+      "Da vistoria tecnica ao acompanhamento de obra, criamos solucoes objetivas para quem precisa de precisao, agilidade e confianca.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80",
+    ctaRegisterText: "Quero me cadastrar",
+    ctaLoginText: "Ja tenho conta",
+  },
+  about: {
+    intro: "Conheca o engenheiro e a abordagem tecnica aplicada a cada projeto.",
+    cards: [
+      {
+        title: "Experiencia solida",
+        text: "Mais de 10 anos entregando projetos estruturais com foco em seguranca e viabilidade.",
+      },
+      {
+        title: "Obras acompanhadas",
+        text: "Gestao tecnica rigorosa, reduzindo retrabalho e custos inesperados.",
+      },
+      {
+        title: "Atuacao consultiva",
+        text: "Diagnosticos objetivos para tomada de decisao rapida e segura.",
+      },
+    ],
+  },
+  services: {
+    intro: "Servicos essenciais para obras, reformas e regularizacoes.",
+    backgroundImageUrl: "",
+    backgroundOpacity: 0.25,
+    cards: [
+      { title: "Laudos tecnicos", text: "Relatorios completos com analises estruturais, patologias e recomendacoes." },
+      { title: "Projetos estruturais", text: "Dimensionamento e detalhamento para obras residenciais e comerciais." },
+      { title: "Consultoria e pericias", text: "Avaliacoes tecnicas para regularizacao, compra ou venda de imoveis." },
+    ],
+  },
+  blog: {
+    intro: "Conteudos em video sobre engenharia, seguranca e boas praticas.",
+    videos: [
+      "https://www.youtube.com/embed/2eTz9B5W3dA",
+      "https://www.youtube.com/embed/x_0rF2gW0aM",
+      "https://www.youtube.com/embed/4yN0m6rSdxQ",
+    ],
+  },
+  contacts: {
+    email: "contato@engenheiroplatform.com",
+    phone: "(11) 99999-9999",
+    address: "Rua Exemplo, 123 - Sao Paulo, SP",
+    hours: "Atendimento: Seg a Sex, 8h - 18h",
+  },
+};
 
-  const content = await response.json();
+function applyLandingContent(content) {
+  if (!content) return;
 
   document.getElementById("hero-eyebrow").textContent = content.hero.eyebrow;
   document.getElementById("hero-title").textContent = content.hero.title;
@@ -301,6 +350,21 @@ async function loadLandingContent() {
   document.getElementById("contact-hours").textContent = content.contacts.hours;
 
   initServicesCarousel();
+}
+
+async function loadLandingContent() {
+  try {
+    const response = await fetch("/admin/landing");
+    if (!response.ok) {
+      applyLandingContent(defaultLandingContent);
+      return;
+    }
+
+    const content = await response.json();
+    applyLandingContent(content);
+  } catch (_err) {
+    applyLandingContent(defaultLandingContent);
+  }
 }
 
 function initServicesCarousel() {
