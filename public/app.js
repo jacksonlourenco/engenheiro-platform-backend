@@ -132,8 +132,13 @@ registerForm.addEventListener("submit", async (event) => {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    statusEl.textContent = error.message || "Erro ao cadastrar.";
+    let error = null;
+    try {
+      error = await response.json();
+    } catch {
+      // ignore
+    }
+    statusEl.textContent = (error && error.message) || "Erro ao cadastrar.";
     return;
   }
 
@@ -166,7 +171,7 @@ loginForm.addEventListener("submit", async (event) => {
     body: JSON.stringify(payload),
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
     statusEl.textContent = data.message || "Erro ao entrar.";
@@ -199,8 +204,7 @@ resetForm.addEventListener("submit", async (event) => {
     body: JSON.stringify({ email }),
   });
 
-  const data = await response.json();
-
+  const data = await response.json().catch(() => ({}));
   statusEl.textContent = data.message || "Se o email existir, enviaremos o link.";
 });
 
@@ -374,6 +378,12 @@ function initServicesCarousel() {
   const cards = Array.from(track.children);
   if (!cards.length) return;
 
+  // On mobile we rely on native swipe/trackpad scrolling (no arrows, no forced centering).
+  if (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) {
+    cards.forEach((card) => card.classList.remove("active"));
+    return;
+  }
+
   let activeIndex = Math.min(1, cards.length - 1);
   const focusCard = (index) => {
     activeIndex = index;
@@ -412,6 +422,11 @@ const carousels = document.querySelectorAll("[data-carousel]");
 
 carousels.forEach((carousel) => {
   if (carousel.dataset.carousel === "services") {
+    return;
+  }
+
+  // Mobile uses native swipe/trackpad scroll with scroll-snap; hide arrows via CSS.
+  if (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) {
     return;
   }
   const track = carousel.querySelector(".carousel-track");

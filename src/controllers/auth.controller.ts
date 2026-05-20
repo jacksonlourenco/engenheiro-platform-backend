@@ -47,7 +47,7 @@ function isProfileComplete(user: any): boolean {
 }
 
 export async function register(req: Request, res: Response): Promise<Response> {
-  const { name, email, password, cpf, phone } = req.body;
+  const { name, email, password, cpf, phone } = (req.body || {}) as any;
 
   if (!name || !email || !password || !cpf || !phone) {
     return res.status(400).json({ message: "name, email, password, cpf and phone are required." });
@@ -127,7 +127,7 @@ export async function verifyEmail(req: Request, res: Response): Promise<Response
 }
 
 export async function login(req: Request, res: Response): Promise<Response> {
-  const { identifier, password } = req.body;
+  const { identifier, password } = (req.body || {}) as any;
 
   if (!identifier || !password) {
     return res.status(400).json({ message: "identifier and password are required." });
@@ -189,7 +189,7 @@ export async function updateProfile(req: Request, res: Response): Promise<Respon
     return res.status(401).json({ message: "Unauthorized." });
   }
 
-  const { address, addressNumber, gender, birthDate, maritalStatus, childrenCount, phone } = req.body;
+  const { address, addressNumber, gender, birthDate, maritalStatus, childrenCount, phone } = (req.body || {}) as any;
 
   const normalizedAddress = address ? String(address).trim() : null;
   const normalizedAddressNumber = addressNumber ? String(addressNumber).trim() : null;
@@ -264,7 +264,7 @@ export async function updateProfile(req: Request, res: Response): Promise<Respon
 }
 
 export async function forgotPassword(req: Request, res: Response): Promise<Response> {
-  const { email } = req.body;
+  const { email } = (req.body || {}) as any;
 
   if (!email) {
     return res.status(400).json({ message: "email is required." });
@@ -303,7 +303,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<Respo
 }
 
 export async function resetPassword(req: Request, res: Response): Promise<Response> {
-  const { token, password } = req.body;
+  const { token, password } = (req.body || {}) as any;
 
   if (!token || !password) {
     return res.status(400).json({ message: "token and password are required." });

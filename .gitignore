@@ -4,6 +4,9 @@ node_modules
 
 /src/generated/prisma
 
+# Codex local config
+.codex/
+
 # wrangler files
 .wrangler
 .dev.vars*

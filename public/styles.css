@@ -264,6 +264,31 @@ a {
   overflow: hidden;
 }
 
+/* Mobile: enable swipe/trackpad scrolling instead of arrow buttons */
+@media (max-width: 900px) {
+  .carousel-track {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 12px;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+  }
+
+  .carousel-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .carousel-track > * {
+    scroll-snap-align: center;
+  }
+
+  .carousel-btn {
+    display: none;
+  }
+}
+
 #services .carousel-track {
   grid-auto-columns: calc((100% - 32px) / 3);
 }
@@ -976,9 +1001,31 @@ details > details {
   }
 
   .admin-sidebar {
-    position: static;
-    grid-auto-flow: column;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: sticky;
+    top: var(--site-header-offset, 96px);
+    z-index: 5;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .admin-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-nav-item {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 10px 14px;
+    border-radius: 999px;
+  }
+
+  .admin-content {
+    min-width: 0;
   }
 
   .admin-grid {
@@ -995,6 +1042,15 @@ details > details {
 
   .discount-dates {
     grid-template-columns: 1fr;
+  }
+
+  .table-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .table-row .btn {
+    width: 100%;
   }
 
   .hero {
@@ -1029,7 +1085,7 @@ details > details {
   }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1100px) and (min-width: 901px) {
   .video-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1106,5 +1162,11 @@ details > details {
 
   .site-header.nav-open .site-nav {
     display: block;
+  }
+
+  /* Admin: keep sidebar usable on very small screens */
+  .admin-sidebar {
+    top: var(--site-header-offset, 72px);
+    padding: 10px;
   }
 }

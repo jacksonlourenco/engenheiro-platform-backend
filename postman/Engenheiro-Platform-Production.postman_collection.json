@@ -1,0 +1,334 @@
+{
+  "info": {
+    "name": "Engenheiro Platform - PRODUCTION",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Collection para testar a API em producao (Railway) com Auth, Orcamento e Admin."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://engenheiro-platform-backend-production.up.railway.app" },
+    { "key": "userToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "resetToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "budgetId", "value": "" },
+    { "key": "adminNotifyEmail", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Health - GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Landing - GET /admin/landing (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/admin/landing", "host": ["{{baseUrl}}"], "path": ["admin", "landing"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register - POST /auth/register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Joao da Silva\",\n  \"email\": \"joao+prod@email.com\",\n  \"cpf\": \"12345678901\",\n  \"phone\": \"11999998888\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (USER) - POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"joao+prod@email.com\",\n  \"password\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.token) {",
+                  "  pm.collectionVariables.set('userToken', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login (ADMIN) - POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"admin@email.com\",\n  \"password\": \"123456\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data && data.token) {",
+                  "  pm.collectionVariables.set('adminToken', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Me (USER) - GET /auth/me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile (USER) - PATCH /auth/me",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"11999998888\",\n  \"address\": \"Rua Exemplo, Bairro Exemplo, Sao Paulo - SP\",\n  \"addressNumber\": \"123\",\n  \"gender\": \"masculino\",\n  \"birthDate\": \"1990-01-01\",\n  \"maritalStatus\": \"solteiro\",\n  \"childrenCount\": 0\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password - POST /auth/forgot-password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"joao+prod@email.com\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password - POST /auth/reset-password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"nova_senha_123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Budget (USER)",
+      "item": [
+        {
+          "name": "Questions (leigo) - GET /budget/questions?profile=leigo",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/budget/questions?profile=leigo",
+              "host": ["{{baseUrl}}"],
+              "path": ["budget", "questions"],
+              "query": [{ "key": "profile", "value": "leigo" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Calculate - POST /budget/calculate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": \"leigo\",\n  \"answers\": {\n    \"structural\": {\n      \"area\": 120\n    },\n    \"complementary\": {\n      \"contratar\": {\n        \"hidraulico\": \"SIM\",\n        \"sanitario\": \"SIM\",\n        \"pluvial\": \"NÃO\",\n        \"eletrico\": \"SIM\",\n        \"incendio\": \"NÃO\"\n      }\n    }\n  }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/budget/calculate", "host": ["{{baseUrl}}"], "path": ["budget", "calculate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Budgets - List - GET /budgets",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": { "raw": "{{baseUrl}}/budgets", "host": ["{{baseUrl}}"], "path": ["budgets"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Budgets - Create (accepted=false) - POST /budgets",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profile\": \"leigo\",\n  \"answers\": {\n    \"structural\": { \"area\": 120 },\n    \"complementary\": { \"contratar\": { \"hidraulico\": \"SIM\" } }\n  },\n  \"result\": { \"totalSuggested\": 1234.56 },\n  \"accepted\": false\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/budgets", "host": ["{{baseUrl}}"], "path": ["budgets"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "if (data && data.id) {",
+                  "  pm.collectionVariables.set('budgetId', String(data.id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Budgets - Set accepted=true - PATCH /budgets/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"accepted\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/budgets/{{budgetId}}", "host": ["{{baseUrl}}"], "path": ["budgets", "{{budgetId}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Budgets - Set accepted=false - PATCH /budgets/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"accepted\": false\n}" },
+            "url": { "raw": "{{baseUrl}}/budgets/{{budgetId}}", "host": ["{{baseUrl}}"], "path": ["budgets", "{{budgetId}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Utils",
+      "item": [
+        {
+          "name": "CEP Lookup - GET /utils/cep/:cep",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/utils/cep/01001000", "host": ["{{baseUrl}}"], "path": ["utils", "cep", "01001000"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin (requires adminToken)",
+      "item": [
+        {
+          "name": "Admin Me - GET /auth/admin/me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/admin/me", "host": ["{{baseUrl}}"], "path": ["auth", "admin", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin - Budgets (list) - GET /admin/budgets",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/budgets", "host": ["{{baseUrl}}"], "path": ["admin", "budgets"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin - Budgets (search by id/email/cpf/name) - GET /admin/budgets?query=",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/budgets?query=BUD-000001",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "budgets"],
+              "query": [{ "key": "query", "value": "BUD-000001" }]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin - Test Email - POST /admin/test-email",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toEmail\": \"{{adminNotifyEmail}}\",\n  \"subject\": \"Teste de e-mail (PROD)\",\n  \"text\": \"Se voce recebeu este e-mail, o envio em producao esta OK.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/admin/test-email", "host": ["{{baseUrl}}"], "path": ["admin", "test-email"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin - Resend Budget Accepted Email - POST /admin/budgets/:budgetId/notify",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/budgets/{{budgetId}}/notify",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "budgets", "{{budgetId}}", "notify"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+
