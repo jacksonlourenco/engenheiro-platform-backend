@@ -103,12 +103,13 @@ async function ensureUserDiscountsTable(): Promise<void> {
   `);
 
   await pool.query("ALTER TABLE user_discounts ADD COLUMN IF NOT EXISTS id BIGSERIAL");
-  await pool.query("ALTER TABLE user_discounts ALTER COLUMN user_id DROP NOT NULL");
   await pool.query(`
     DO $$
+    DECLARE
+      primary_key_name TEXT;
     BEGIN
-      IF EXISTS (
-        SELECT 1
+      SELECT constraint_info.conname
+      INTO primary_key_name
         FROM pg_constraint constraint_info
         JOIN pg_attribute column_info
           ON column_info.attrelid = constraint_info.conrelid
@@ -116,8 +117,10 @@ async function ensureUserDiscountsTable(): Promise<void> {
         WHERE constraint_info.conrelid = 'user_discounts'::regclass
           AND constraint_info.contype = 'p'
           AND column_info.attname = 'user_id'
-      ) THEN
-        ALTER TABLE user_discounts DROP CONSTRAINT user_discounts_pkey;
+        LIMIT 1;
+
+      IF primary_key_name IS NOT NULL THEN
+        EXECUTE format('ALTER TABLE user_discounts DROP CONSTRAINT %I', primary_key_name);
       END IF;
 
       IF NOT EXISTS (
@@ -128,6 +131,7 @@ async function ensureUserDiscountsTable(): Promise<void> {
       END IF;
     END $$;
   `);
+  await pool.query("ALTER TABLE user_discounts ALTER COLUMN user_id DROP NOT NULL");
   await pool.query("CREATE INDEX IF NOT EXISTS user_discounts_user_period_idx ON user_discounts (user_id, starts_at, ends_at)");
 
   const legacyResult = await pool.query("SELECT content->'globalDiscount' AS discount FROM budget_settings WHERE id = 1");
