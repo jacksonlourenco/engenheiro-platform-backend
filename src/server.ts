@@ -3,7 +3,9 @@ import { app } from "./app";
 import {
   ensureBudgetSettingsTable,
   ensureBudgetsTable,
+  ensureContractTimelineTable,
   ensureLandingSettings,
+  ensureMeetingTables,
   ensureUserDiscountsTable,
   ensureUsersTable,
 } from "./config/database";
@@ -16,6 +18,8 @@ async function bootstrap(): Promise<void> {
   await ensureBudgetsTable();
   await ensureBudgetSettingsTable();
   await ensureUserDiscountsTable();
+  await ensureContractTimelineTable();
+  await ensureMeetingTables();
 
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);

@@ -498,6 +498,8 @@ export async function calculateBudget(req: Request, res: Response): Promise<Resp
         WHERE user_id = $1
           AND (starts_at IS NULL OR starts_at <= NOW())
           AND (ends_at IS NULL OR ends_at >= NOW())
+        ORDER BY percent DESC, created_at DESC
+        LIMIT 1
       `,
       [userId],
     );
@@ -510,18 +512,17 @@ export async function calculateBudget(req: Request, res: Response): Promise<Resp
   }
 
   if (discountPercent === 0) {
-    const global = settings?.globalDiscount;
-    const pct = global?.percent;
-    const startsAt = global?.startsAt ? new Date(String(global.startsAt)) : null;
-    const endsAt = global?.endsAt ? new Date(String(global.endsAt)) : null;
-    const now = new Date();
-
-    const startsOk = !startsAt || (!Number.isNaN(startsAt.getTime()) && startsAt <= now);
-    const endsOk = !endsAt || (!Number.isNaN(endsAt.getTime()) && endsAt >= now);
-
-    const num = Number(pct);
-    if (startsOk && endsOk && Number.isFinite(num) && num > 0) {
-      discountPercent = Math.min(100, Math.max(0, num));
+    const globalResult = await pool.query(`
+      SELECT percent
+      FROM user_discounts
+      WHERE user_id IS NULL
+        AND (starts_at IS NULL OR starts_at <= NOW())
+        AND (ends_at IS NULL OR ends_at >= NOW())
+      ORDER BY percent DESC, created_at DESC
+      LIMIT 1
+    `);
+    if (globalResult.rows[0]?.percent !== undefined) {
+      discountPercent = Math.min(100, Math.max(0, Number(globalResult.rows[0].percent) || 0));
     }
   }
 

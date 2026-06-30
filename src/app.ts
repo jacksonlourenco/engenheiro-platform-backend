@@ -5,7 +5,9 @@ import { authRoutes } from "./routes/auth.routes";
 import { adminRoutes } from "./routes/admin.routes";
 import { budgetRoutes } from "./routes/budget.routes";
 import { userBudgetsRoutes } from "./routes/user-budgets.routes";
+import { timelineRoutes } from "./routes/timeline.routes";
 import { utilsRoutes } from "./routes/utils.routes";
+import { meetingRoutes } from "./routes/meeting.routes";
 
 const app = express();
 
@@ -35,6 +37,8 @@ app.use("/auth", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/budget", budgetRoutes);
 app.use("/budgets", userBudgetsRoutes);
+app.use("/timeline", timelineRoutes);
+app.use("/meetings", meetingRoutes);
 app.use("/utils", utilsRoutes);
 
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {

@@ -102,6 +102,52 @@
         <h3>Orcamentos pendentes</h3>
         <div class="pending-list" id="pending-list"></div>
       </div>
+
+      <div class="card" id="contract-timeline-card">
+        <h3>Acompanhamento do contrato</h3>
+        <p id="contract-timeline-status">Contrato ainda nao ativado.</p>
+        <div class="timeline-list" id="contract-timeline-list"></div>
+      </div>
+
+      <div class="card" id="meeting-card">
+        <h3>Agendar reuniao</h3>
+        <p>Escolha um dos horarios disponiveis para uma reuniao de 30 minutos com o engenheiro.</p>
+        <form class="form" id="meeting-filter-form">
+          <div class="meeting-filter-grid">
+            <label>
+              Contrato ativo
+              <select name="contractId" required>
+                <option value="">Carregando contratos...</option>
+              </select>
+            </label>
+            <label>
+              De
+              <input type="date" name="from" />
+            </label>
+            <label>
+              Ate
+              <input type="date" name="to" />
+            </label>
+            <label>
+              Periodo do dia (opcional)
+              <select name="period">
+                <option value="">Qualquer periodo</option>
+                <option value="morning">Manha</option>
+                <option value="afternoon">Tarde</option>
+              </select>
+            </label>
+            <label>
+              Melhor horario (opcional)
+              <input type="time" name="preferredTime" step="1800" />
+            </label>
+          </div>
+          <p class="mini-help">O melhor horario funciona como preferencia: mostraremos primeiro as opcoes mais proximas, sem ocultar os demais horarios.</p>
+          <button class="btn primary" type="submit" id="meeting-search-button" disabled>Buscar horarios</button>
+        </form>
+        <div class="current-meeting hidden" id="current-meeting"></div>
+        <p class="form-status" id="meeting-message"></p>
+        <div class="timeline-list" id="meeting-slots-list"></div>
+      </div>
     </main>
 
     <div class="modal" id="budget-modal" aria-hidden="true">

@@ -23,10 +23,19 @@ function openModal(tab) {
 function closeModal() {
   modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
-  statusEl.textContent = "";
+  setStatus("", "info");
 }
 
-function setActiveTab(tab) {
+function setStatus(message, tone) {
+  statusEl.textContent = message || "";
+  statusEl.classList.remove("success", "error", "info");
+  if (tone) {
+    statusEl.classList.add(tone);
+  }
+}
+
+function setActiveTab(tab, options) {
+  const preserveStatus = Boolean(options && options.preserveStatus);
   tabButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === tab);
   });
@@ -36,7 +45,9 @@ function setActiveTab(tab) {
   resetForm.classList.toggle("hidden", tab !== "reset");
   document.getElementById("auth-title").textContent =
     tab === "register" ? "Criar conta" : tab === "login" ? "Entrar" : "Reset de senha";
-  statusEl.textContent = "";
+  if (!preserveStatus) {
+    setStatus("", "info");
+  }
 }
 
 openAuth.addEventListener("click", () => openModal("register"));
@@ -101,22 +112,22 @@ registerForm.addEventListener("submit", async (event) => {
   const name = String(payload.name || "").trim();
 
   if (!emailRegex.test(email)) {
-    statusEl.textContent = "Email invalido.";
+    setStatus("Email invalido.", "error");
     return;
   }
 
   if (!cpfRegex.test(cpf)) {
-    statusEl.textContent = "CPF deve conter 11 numeros.";
+    setStatus("CPF deve conter 11 numeros.", "error");
     return;
   }
 
   if (!phoneRegex.test(phone)) {
-    statusEl.textContent = "Telefone deve conter DDD + 9 numeros.";
+    setStatus("Telefone deve conter DDD + 9 numeros.", "error");
     return;
   }
 
   if (name.split(/\s+/).length < 2) {
-    statusEl.textContent = "Informe nome completo.";
+    setStatus("Informe nome completo.", "error");
     return;
   }
 
@@ -138,12 +149,18 @@ registerForm.addEventListener("submit", async (event) => {
     } catch {
       // ignore
     }
-    statusEl.textContent = (error && error.message) || "Erro ao cadastrar.";
+    setStatus((error && error.message) || "Erro ao cadastrar.", "error");
     return;
   }
 
-  statusEl.textContent = "Cadastro realizado. Voce ja pode fazer login.";
-  setActiveTab("login");
+  // UX: show success message, switch to login and prefill the email.
+  registerForm.reset();
+  setActiveTab("login", { preserveStatus: true });
+  if (loginForm.identifier) {
+    loginForm.identifier.value = email;
+    loginForm.identifier.focus();
+  }
+  setStatus("Cadastro realizado com sucesso. Agora faca login para continuar.", "success");
 });
 
 loginForm.addEventListener("submit", async (event) => {
@@ -154,12 +171,12 @@ loginForm.addEventListener("submit", async (event) => {
   const identifier = String(payload.identifier || "").trim().toLowerCase();
 
   if (!identifier) {
-    statusEl.textContent = "Email ou CPF invalido.";
+    setStatus("Email ou CPF invalido.", "error");
     return;
   }
 
   if (!identifier.includes("@") && !cpfRegex.test(identifier)) {
-    statusEl.textContent = "CPF deve conter 11 numeros.";
+    setStatus("CPF deve conter 11 numeros.", "error");
     return;
   }
 
@@ -174,7 +191,7 @@ loginForm.addEventListener("submit", async (event) => {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    statusEl.textContent = data.message || "Erro ao entrar.";
+    setStatus(data.message || "Erro ao entrar.", "error");
     return;
   }
 
@@ -194,7 +211,7 @@ resetForm.addEventListener("submit", async (event) => {
   const email = String(payload.email || "").trim().toLowerCase();
 
   if (!emailRegex.test(email)) {
-    statusEl.textContent = "Email invalido.";
+    setStatus("Email invalido.", "error");
     return;
   }
 
@@ -205,7 +222,7 @@ resetForm.addEventListener("submit", async (event) => {
   });
 
   const data = await response.json().catch(() => ({}));
-  statusEl.textContent = data.message || "Se o email existir, enviaremos o link.";
+  setStatus(data.message || "Se o email existir, enviaremos o link.", "success");
 });
 
 const digitOnlyInputs = document.querySelectorAll("input[inputmode='numeric']");

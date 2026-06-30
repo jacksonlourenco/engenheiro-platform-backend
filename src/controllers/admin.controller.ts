@@ -107,10 +107,8 @@ export async function searchUsers(req: Request, res: Response): Promise<Response
 
   const isEmail = query.includes("@");
   const sql = `
-    SELECT u.id, u.name, u.email, u.cpf, u.phone, u.role, u.contract_active,
-           d.percent AS discount_percent, d.starts_at AS discount_starts_at, d.ends_at AS discount_ends_at
+    SELECT u.id, u.name, u.email, u.cpf, u.phone, u.role, u.contract_active
     FROM users u
-    LEFT JOIN user_discounts d ON d.user_id = u.id
   `;
 
   const users = await pool.query(
@@ -131,7 +129,291 @@ export async function updateContractStatus(req: Request, res: Response): Promise
     return res.status(400).json({ message: "Invalid user id." });
   }
 
+  const userResult = await pool.query("SELECT id FROM users WHERE id = $1 LIMIT 1", [userId]);
+  if (!userResult.rows.length) {
+    return res.status(404).json({ message: "User not found." });
+  }
+
+  if (Boolean(active)) {
+    const acceptedBudget = await pool.query("SELECT id FROM budgets WHERE user_id = $1 AND accepted = TRUE LIMIT 1", [
+      userId,
+    ]);
+
+    if (!acceptedBudget.rows.length) {
+      return res.status(400).json({ message: "O contrato so pode ser ativado apos um orcamento aceito." });
+    }
+  }
+
   await pool.query("UPDATE users SET contract_active = $1 WHERE id = $2", [Boolean(active), userId]);
+
+  if (Boolean(active)) {
+    await ensureDefaultTimelineItems(userId);
+  }
+
+  return res.status(200).json({ success: true });
+}
+
+export async function updateBudgetContractStatus(req: Request, res: Response): Promise<Response> {
+  const budgetId = Number(req.params.budgetId);
+  const { active } = req.body;
+
+  if (!Number.isInteger(budgetId)) {
+    return res.status(400).json({ message: "Invalid budget id." });
+  }
+
+  const budgetResult = await pool.query("SELECT id, user_id, accepted FROM budgets WHERE id = $1 LIMIT 1", [budgetId]);
+  const budget = budgetResult.rows[0];
+  if (!budget) {
+    return res.status(404).json({ message: "Budget not found." });
+  }
+
+  if (Boolean(active) && !budget.accepted) {
+    return res.status(400).json({ message: "O contrato so pode ser ativado apos o orcamento ser aceito." });
+  }
+
+  await pool.query("UPDATE budgets SET contract_active = $1 WHERE id = $2", [Boolean(active), budgetId]);
+
+  if (Boolean(active)) {
+    await ensureDefaultTimelineItems(Number(budget.user_id), budgetId);
+  }
+
+  return res.status(200).json({ success: true });
+}
+
+const timelineStatuses = new Set(["pendente", "em_andamento", "concluido"]);
+
+function normalizeTimelineStatus(value: unknown): string {
+  const status = String(value || "pendente").trim();
+  return timelineStatuses.has(status) ? status : "pendente";
+}
+
+function parseDeadline(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+async function ensureDefaultTimelineItems(userId: number, budgetId?: number): Promise<void> {
+  const existing = budgetId
+    ? await pool.query("SELECT id FROM contract_timeline_items WHERE budget_id = $1 LIMIT 1", [budgetId])
+    : await pool.query("SELECT id FROM contract_timeline_items WHERE user_id = $1 AND budget_id IS NULL LIMIT 1", [userId]);
+  if (existing.rows.length) return;
+
+  const defaults = [
+    {
+      title: "Reuniao inicial",
+      description: "Alinhamento entre engenheiro e cliente sobre escopo, prioridades e proximos passos.",
+    },
+    {
+      title: "ART",
+      description: "Emissao ou acompanhamento da Anotacao de Responsabilidade Tecnica quando aplicavel.",
+    },
+    {
+      title: "Emissao de nota fiscal",
+      description: "Registro fiscal relacionado aos servicos contratados.",
+    },
+    {
+      title: "Entrega de projetos",
+      description: "Organizacao das entregas tecnicas combinadas no contrato.",
+    },
+  ];
+
+  for (const item of defaults) {
+    await pool.query(
+      `
+        INSERT INTO contract_timeline_items (user_id, budget_id, title, description, status)
+        VALUES ($1, $2, $3, $4, 'pendente')
+      `,
+      [userId, budgetId || null, item.title, item.description],
+    );
+  }
+}
+
+async function getBudgetForTimeline(budgetId: number) {
+  const result = await pool.query(
+    `
+      SELECT
+        b.id,
+        b.user_id,
+        b.accepted,
+        b.contract_active,
+        b.created_at,
+        u.name AS user_name,
+        u.email AS user_email,
+        u.cpf AS user_cpf,
+        u.phone AS user_phone
+      FROM budgets b
+      JOIN users u ON u.id = b.user_id
+      WHERE b.id = $1
+      LIMIT 1
+    `,
+    [budgetId],
+  );
+  return result.rows[0];
+}
+
+export async function getBudgetTimeline(req: Request, res: Response): Promise<Response> {
+  const budgetId = Number(req.params.budgetId);
+
+  if (!Number.isInteger(budgetId)) {
+    return res.status(400).json({ message: "Invalid budget id." });
+  }
+
+  const budget = await getBudgetForTimeline(budgetId);
+  if (!budget) {
+    return res.status(404).json({ message: "Budget not found." });
+  }
+
+  const result = await pool.query(
+    `
+      SELECT id, user_id, budget_id, title, description, deadline, status, created_at, updated_at
+      FROM contract_timeline_items
+      WHERE budget_id = $1
+      ORDER BY COALESCE(deadline, created_at::date), id
+    `,
+    [budgetId],
+  );
+
+  return res.status(200).json({ budget, items: result.rows });
+}
+
+export async function createBudgetTimelineItem(req: Request, res: Response): Promise<Response> {
+  const budgetId = Number(req.params.budgetId);
+  const title = String(req.body?.title || "").trim();
+  const description = String(req.body?.description || "").trim();
+  const deadline = parseDeadline(req.body?.deadline);
+  const status = normalizeTimelineStatus(req.body?.status);
+
+  if (!Number.isInteger(budgetId)) {
+    return res.status(400).json({ message: "Invalid budget id." });
+  }
+
+  if (!title) {
+    return res.status(400).json({ message: "Informe o nome da atividade." });
+  }
+
+  const budget = await getBudgetForTimeline(budgetId);
+  if (!budget) {
+    return res.status(404).json({ message: "Budget not found." });
+  }
+
+  if (!budget.contract_active) {
+    return res.status(400).json({ message: "Ative o contrato antes de cadastrar atividades." });
+  }
+
+  const result = await pool.query(
+    `
+      INSERT INTO contract_timeline_items (user_id, budget_id, title, description, deadline, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, user_id, budget_id, title, description, deadline, status, created_at, updated_at
+    `,
+    [budget.user_id, budgetId, title, description || null, deadline, status],
+  );
+
+  return res.status(201).json(result.rows[0]);
+}
+
+export async function listUserTimeline(req: Request, res: Response): Promise<Response> {
+  const userId = Number(req.params.userId);
+
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ message: "Invalid user id." });
+  }
+
+  const result = await pool.query(
+    `
+      SELECT id, user_id, title, description, deadline, status, created_at, updated_at
+      FROM contract_timeline_items
+      WHERE user_id = $1
+      ORDER BY COALESCE(deadline, created_at::date), id
+    `,
+    [userId],
+  );
+
+  return res.status(200).json(result.rows);
+}
+
+export async function createTimelineItem(req: Request, res: Response): Promise<Response> {
+  const userId = Number(req.params.userId);
+  const title = String(req.body?.title || "").trim();
+  const description = String(req.body?.description || "").trim();
+  const deadline = parseDeadline(req.body?.deadline);
+  const status = normalizeTimelineStatus(req.body?.status);
+
+  if (!Number.isInteger(userId)) {
+    return res.status(400).json({ message: "Invalid user id." });
+  }
+
+  if (!title) {
+    return res.status(400).json({ message: "Informe o nome da atividade." });
+  }
+
+  const userResult = await pool.query("SELECT contract_active FROM users WHERE id = $1 LIMIT 1", [userId]);
+  if (!userResult.rows.length) {
+    return res.status(404).json({ message: "User not found." });
+  }
+
+  if (!userResult.rows[0].contract_active) {
+    return res.status(400).json({ message: "Ative o contrato antes de cadastrar atividades." });
+  }
+
+  const result = await pool.query(
+    `
+      INSERT INTO contract_timeline_items (user_id, title, description, deadline, status)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, user_id, title, description, deadline, status, created_at, updated_at
+    `,
+    [userId, title, description || null, deadline, status],
+  );
+
+  return res.status(201).json(result.rows[0]);
+}
+
+export async function updateTimelineItem(req: Request, res: Response): Promise<Response> {
+  const itemId = Number(req.params.itemId);
+  const title = String(req.body?.title || "").trim();
+  const description = String(req.body?.description || "").trim();
+  const deadline = parseDeadline(req.body?.deadline);
+  const status = normalizeTimelineStatus(req.body?.status);
+
+  if (!Number.isInteger(itemId)) {
+    return res.status(400).json({ message: "Invalid timeline item id." });
+  }
+
+  if (!title) {
+    return res.status(400).json({ message: "Informe o nome da atividade." });
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE contract_timeline_items
+      SET title = $1, description = $2, deadline = $3, status = $4, updated_at = NOW()
+      WHERE id = $5
+      RETURNING id, user_id, title, description, deadline, status, created_at, updated_at
+    `,
+    [title, description || null, deadline, status, itemId],
+  );
+
+  if (!result.rows.length) {
+    return res.status(404).json({ message: "Timeline item not found." });
+  }
+
+  return res.status(200).json(result.rows[0]);
+}
+
+export async function deleteTimelineItem(req: Request, res: Response): Promise<Response> {
+  const itemId = Number(req.params.itemId);
+
+  if (!Number.isInteger(itemId)) {
+    return res.status(400).json({ message: "Invalid timeline item id." });
+  }
+
+  const result = await pool.query("DELETE FROM contract_timeline_items WHERE id = $1 RETURNING id", [itemId]);
+  if (!result.rows.length) {
+    return res.status(404).json({ message: "Timeline item not found." });
+  }
+
   return res.status(200).json({ success: true });
 }
 
@@ -148,6 +430,7 @@ export async function listBudgets(req: Request, res: Response): Promise<Response
       b.answers,
       b.result,
       b.accepted,
+      b.contract_active,
       b.created_at,
       u.id AS user_id,
       u.name AS user_name,
@@ -295,6 +578,55 @@ function parseDateTime(value: unknown): string | null {
   return date.toISOString();
 }
 
+function validateDiscountInput(percent: unknown, startsAt: unknown, endsAt: unknown) {
+  const pct = Number(percent);
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+    return { error: "O percentual deve ser maior que 0 e menor ou igual a 100." };
+  }
+
+  const startIso = parseDateTime(startsAt);
+  const endIso = parseDateTime(endsAt);
+  if ((startsAt && !startIso) || (endsAt && !endIso)) {
+    return { error: "Data inicial ou final invalida." };
+  }
+  if (startIso && endIso && new Date(endIso) <= new Date(startIso)) {
+    return { error: "A data final deve ser posterior a data inicial." };
+  }
+
+  return { pct, startIso, endIso };
+}
+
+export async function createDiscount(req: Request, res: Response): Promise<Response> {
+  const { percent, startsAt, endsAt } = req.body || {};
+  const userQuery = String(req.body?.userQuery || "").trim().toLowerCase();
+  const validated = validateDiscountInput(percent, startsAt, endsAt);
+  if (validated.error) {
+    return res.status(400).json({ message: validated.error });
+  }
+
+  let userId: number | null = null;
+  if (userQuery) {
+    const userResult = userQuery.includes("@")
+      ? await pool.query("SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1", [userQuery])
+      : await pool.query("SELECT id FROM users WHERE cpf = $1 LIMIT 1", [userQuery.replace(/\D/g, "")]);
+    if (!userResult.rows.length) {
+      return res.status(404).json({ message: "Usuario nao encontrado pelo e-mail ou CPF informado." });
+    }
+    userId = Number(userResult.rows[0].id);
+  }
+
+  const result = await pool.query(
+    `
+      INSERT INTO user_discounts (user_id, percent, starts_at, ends_at)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, user_id, percent, starts_at, ends_at, created_at
+    `,
+    [userId, validated.pct, validated.startIso, validated.endIso],
+  );
+
+  return res.status(201).json(result.rows[0]);
+}
+
 export async function updateUserDiscount(req: Request, res: Response): Promise<Response> {
   const userId = Number(req.params.userId);
   const { percent, startsAt, endsAt } = req.body || {};
@@ -303,31 +635,65 @@ export async function updateUserDiscount(req: Request, res: Response): Promise<R
     return res.status(400).json({ message: "Invalid user id." });
   }
 
+  // Mantem compatibilidade com a antiga rota PUT, que removia o desconto pelo usuario.
   if (percent === null || percent === undefined || percent === "") {
     await pool.query("DELETE FROM user_discounts WHERE user_id = $1", [userId]);
     return res.status(200).json({ success: true });
   }
 
-  const pct = Number(percent);
-  if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
-    return res.status(400).json({ message: "Percent must be between 0 and 100." });
+  const validated = validateDiscountInput(percent, startsAt, endsAt);
+  if (validated.error) {
+    return res.status(400).json({ message: validated.error });
   }
 
-  const startIso = parseDateTime(startsAt);
-  const endIso = parseDateTime(endsAt);
-  if ((startsAt && !startIso) || (endsAt && !endIso)) {
-    return res.status(400).json({ message: "Invalid start/end date." });
+  const user = await pool.query("SELECT id FROM users WHERE id = $1 LIMIT 1", [userId]);
+  if (!user.rows.length) {
+    return res.status(404).json({ message: "User not found." });
   }
 
-  await pool.query(
+  const result = await pool.query(
     `
       INSERT INTO user_discounts (user_id, percent, starts_at, ends_at)
       VALUES ($1, $2, $3, $4)
-      ON CONFLICT (user_id)
-      DO UPDATE SET percent = EXCLUDED.percent, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at
+      RETURNING id, user_id, percent, starts_at, ends_at, created_at
     `,
-    [userId, pct, startIso, endIso],
+    [userId, validated.pct, validated.startIso, validated.endIso],
   );
+
+  return res.status(201).json(result.rows[0]);
+}
+
+export async function listUserDiscounts(_req: Request, res: Response): Promise<Response> {
+  const result = await pool.query(`
+    SELECT d.id, d.user_id, d.percent, d.starts_at, d.ends_at, d.created_at,
+           u.name, u.email, u.cpf, u.phone,
+           CASE
+             WHEN (d.starts_at IS NULL OR d.starts_at <= NOW())
+              AND (d.ends_at IS NULL OR d.ends_at >= NOW()) THEN 'active'
+             ELSE 'scheduled'
+           END AS status
+    FROM user_discounts d
+    LEFT JOIN users u ON u.id = d.user_id
+    WHERE d.ends_at IS NULL OR d.ends_at >= NOW()
+    ORDER BY
+      CASE WHEN d.starts_at IS NULL OR d.starts_at <= NOW() THEN 0 ELSE 1 END,
+      d.starts_at NULLS FIRST,
+      d.created_at DESC
+  `);
+
+  return res.status(200).json(result.rows);
+}
+
+export async function deleteUserDiscount(req: Request, res: Response): Promise<Response> {
+  const discountId = Number(req.params.discountId);
+  if (!Number.isInteger(discountId)) {
+    return res.status(400).json({ message: "Invalid discount id." });
+  }
+
+  const result = await pool.query("DELETE FROM user_discounts WHERE id = $1 RETURNING id", [discountId]);
+  if (!result.rows.length) {
+    return res.status(404).json({ message: "Discount not found." });
+  }
 
   return res.status(200).json({ success: true });
 }

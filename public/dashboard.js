@@ -6,6 +6,13 @@ const profileMessage = document.getElementById("profile-message");
 const budgetButton = document.getElementById("budget-button");
 const budgetMessage = document.getElementById("budget-message");
 const pendingList = document.getElementById("pending-list");
+const contractTimelineStatus = document.getElementById("contract-timeline-status");
+const contractTimelineList = document.getElementById("contract-timeline-list");
+const meetingFilterForm = document.getElementById("meeting-filter-form");
+const meetingMessage = document.getElementById("meeting-message");
+const meetingSlotsList = document.getElementById("meeting-slots-list");
+const meetingSearchButton = document.getElementById("meeting-search-button");
+const currentMeeting = document.getElementById("current-meeting");
 const editProfileButton = document.getElementById("edit-profile");
 const saveProfileButton = document.getElementById("save-profile");
 const cepLookupButton = document.getElementById("cep-lookup");
@@ -31,6 +38,8 @@ let budgetProfile = "leigo";
 let currentStepIndex = 0;
 let lastBudgetResult = null;
 let budgetQuestionsData = null;
+let activeMeetingContracts = [];
+let meetingBookingsByContract = new Map();
 let questionMeta = {
   tecnico: null,
   leigo: null,
@@ -721,7 +730,8 @@ function renderBudgets(items) {
     const summary = document.createElement("summary");
     const total = item?.result?.totalSuggested;
     const totalText = typeof total === "number" ? ` - R$ ${total.toFixed(2)}` : "";
-    summary.textContent = `Orcamento #${item.id}${totalText} - ${item.accepted ? "Ativo" : "Recusado"}`;
+    const contractText = item.contract_active ? " - Contrato ativo" : "";
+    summary.textContent = `Orcamento #${item.id}${totalText} - ${item.accepted ? "Aceito" : "Recusado"}${contractText}`;
     const info = document.createElement("p");
     const created = item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "";
     info.textContent = created ? `Criado em: ${created}` : "";
@@ -789,7 +799,316 @@ async function loadBudgets() {
 
 loadUser();
 loadBudgets();
+loadContractTimeline();
 loadQuestionMeta();
+initMeetingAgenda();
+
+function todayDateInput() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function plusDaysDateInput(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDateOnlyBR(value) {
+  if (!value) return "-";
+  const [year, month, day] = String(value).slice(0, 10).split("-");
+  if (!year || !month || !day) return String(value);
+  return `${day}/${month}/${year}`;
+}
+
+function formatSlotTime(start, end) {
+  return `${String(start || "").slice(0, 5)} ate ${String(end || "").slice(0, 5)}`;
+}
+
+function slotMinutesValue(value) {
+  const [hour, minute] = String(value || "").slice(0, 5).split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function applyMeetingFilters(slots) {
+  const period = meetingFilterForm.period.value;
+  const preferredTime = meetingFilterForm.preferredTime.value;
+  const preferredMinutes = preferredTime ? slotMinutesValue(preferredTime) : null;
+
+  const filtered = slots.filter((slot) => {
+    const startMinutes = slotMinutesValue(slot.startTime);
+    if (period === "morning") return startMinutes < 12 * 60;
+    if (period === "afternoon") return startMinutes >= 12 * 60;
+    return true;
+  });
+
+  return filtered.sort((left, right) => {
+    if (preferredMinutes !== null) {
+      const leftDistance = Math.abs(slotMinutesValue(left.startTime) - preferredMinutes);
+      const rightDistance = Math.abs(slotMinutesValue(right.startTime) - preferredMinutes);
+      if (leftDistance !== rightDistance) return leftDistance - rightDistance;
+    }
+    return String(left.startsAt).localeCompare(String(right.startsAt));
+  });
+}
+
+async function loadMyMeetingBookings() {
+  const response = await fetch("/meetings/mine", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    meetingBookingsByContract = new Map();
+    return;
+  }
+  const bookings = await response.json();
+  meetingBookingsByContract = new Map(bookings.map((booking) => [Number(booking.budget_id), booking]));
+}
+
+function formatMeetingDateTime(value) {
+  return new Date(value).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function renderCurrentMeeting() {
+  if (!currentMeeting || !meetingFilterForm) return;
+  const budgetId = Number(meetingFilterForm.contractId.value);
+  const booking = meetingBookingsByContract.get(budgetId);
+  currentMeeting.innerHTML = "";
+  currentMeeting.classList.toggle("hidden", !booking);
+  if (!booking) return;
+
+  currentMeeting.innerHTML = `
+    <div>
+      <small>Reuniao atual do contrato #${budgetId}</small>
+      <strong>${formatMeetingDateTime(booking.starts_at)}</strong>
+      <span>Para alterar, escolha um novo horario disponivel.</span>
+    </div>
+    <button class="btn primary" type="button">Remarcar reuniao</button>
+  `;
+  currentMeeting.querySelector("button").addEventListener("click", async () => {
+    await loadMeetingSlots();
+    meetingSlotsList.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+async function configureMeetingContracts(contracts) {
+  if (!meetingFilterForm) return;
+  const select = meetingFilterForm.contractId;
+  activeMeetingContracts = Array.isArray(contracts) ? contracts : [];
+  select.innerHTML = "";
+
+  if (!activeMeetingContracts.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Nenhum contrato ativo";
+    select.appendChild(option);
+    if (meetingSearchButton) meetingSearchButton.disabled = true;
+    meetingSlotsList.innerHTML = "";
+    meetingMessage.textContent = "O agendamento sera liberado quando houver um contrato ativo.";
+    if (currentMeeting) currentMeeting.classList.add("hidden");
+    return;
+  }
+
+  activeMeetingContracts.forEach((contract) => {
+    const option = document.createElement("option");
+    option.value = String(contract.budgetId);
+    const total = contract?.result?.discount?.finalTotal ?? contract?.result?.totalSuggested;
+    option.textContent = `Contrato #${contract.budgetId}${typeof total === "number" ? ` - R$ ${total.toFixed(2)}` : ""}`;
+    select.appendChild(option);
+  });
+  if (meetingSearchButton) meetingSearchButton.disabled = false;
+  await loadMyMeetingBookings();
+  renderCurrentMeeting();
+  await loadMeetingSlots();
+}
+
+async function loadMeetingSlots() {
+  if (!meetingSlotsList || !meetingFilterForm) return;
+  meetingMessage.textContent = "";
+  meetingSlotsList.textContent = "Carregando horarios...";
+
+  const budgetId = Number(meetingFilterForm.contractId.value);
+  if (!Number.isInteger(budgetId)) {
+    meetingSlotsList.textContent = "";
+    meetingMessage.textContent = "Selecione um contrato ativo para consultar os horarios.";
+    return;
+  }
+
+  const from = meetingFilterForm.from.value || todayDateInput();
+  const to = meetingFilterForm.to.value || plusDaysDateInput(30);
+  if (to < from) {
+    meetingSlotsList.textContent = "";
+    meetingMessage.textContent = "A data final deve ser igual ou posterior a data inicial.";
+    return;
+  }
+  const preferredTime = meetingFilterForm.preferredTime.value;
+  if (preferredTime && !/^(?:[01]\d|2[0-3]):(?:00|30)$/.test(preferredTime)) {
+    meetingSlotsList.textContent = "";
+    meetingMessage.textContent = "O melhor horario deve terminar em :00 ou :30.";
+    return;
+  }
+  const response = await fetch(`/meetings/slots?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json().catch(() => []);
+  if (!response.ok) {
+    meetingSlotsList.textContent = "";
+    meetingMessage.textContent = data.message || "Falha ao carregar horarios.";
+    return;
+  }
+
+  const filteredSlots = applyMeetingFilters(data);
+  meetingSlotsList.innerHTML = "";
+  if (!filteredSlots.length) {
+    meetingSlotsList.textContent = "Nenhum horario disponivel para os filtros informados.";
+    return;
+  }
+
+  const periodLabel = meetingFilterForm.period.value === "morning"
+    ? " pela manha"
+    : meetingFilterForm.period.value === "afternoon" ? " pela tarde" : "";
+  meetingMessage.textContent = `${filteredSlots.length} horario(s) encontrado(s)${periodLabel}.`;
+
+  const currentBookingForContract = meetingBookingsByContract.get(budgetId);
+  filteredSlots.forEach((slot, index) => {
+    const row = document.createElement("div");
+    const isPreferredSuggestion = Boolean(preferredTime) && index === 0;
+    row.className = `timeline-item meeting-slot${isPreferredSuggestion ? " meeting-slot-preferred" : ""}`;
+    row.innerHTML = `
+      <div>
+        <strong>${formatDateOnlyBR(slot.date)}</strong>
+        <p>${formatSlotTime(slot.startTime, slot.endTime)}</p>
+        <small>${isPreferredSuggestion ? "Mais proximo do horario de sua preferencia." : "Reuniao de 30 minutos."}</small>
+      </div>
+      <div class="timeline-actions">
+        <button class="btn primary" type="button">${currentBookingForContract ? "Remarcar para este horario" : "Agendar este horario"}</button>
+      </div>
+    `;
+
+    row.querySelector("button").addEventListener("click", async () => {
+      const action = currentBookingForContract ? "remarcar a reuniao" : "confirmar a reuniao";
+      const ok = window.confirm(`Deseja ${action} para ${formatDateOnlyBR(slot.date)} das ${formatSlotTime(slot.startTime, slot.endTime)}?`);
+      if (!ok) return;
+
+      meetingMessage.textContent = "Agendando...";
+      const response = await fetch("/meetings/book", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ startsAt: slot.startsAt, budgetId, reschedule: Boolean(currentBookingForContract) }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        meetingMessage.textContent = result.message || "Falha ao agendar reuniao.";
+        return;
+      }
+
+      meetingMessage.textContent = currentBookingForContract
+        ? "Reuniao remarcada. A agenda e a timeline foram atualizadas."
+        : "Reuniao agendada. O engenheiro sera notificado por e-mail.";
+      await loadContractTimeline();
+    });
+
+    meetingSlotsList.appendChild(row);
+  });
+}
+
+function initMeetingAgenda() {
+  if (!meetingFilterForm) return;
+  meetingFilterForm.from.value = todayDateInput();
+  meetingFilterForm.to.value = plusDaysDateInput(30);
+  meetingMessage.textContent = "Carregando contratos ativos...";
+  meetingFilterForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await loadMeetingSlots();
+  });
+  meetingFilterForm.contractId.addEventListener("change", () => {
+    meetingSlotsList.innerHTML = "";
+    renderCurrentMeeting();
+    meetingMessage.textContent = "Clique em Buscar horarios para consultar este contrato.";
+  });
+}
+
+function formatTimelineStatus(status) {
+  const labels = {
+    pendente: "Pendente",
+    em_andamento: "Em andamento",
+    concluido: "Concluido",
+  };
+  return labels[status] || "Pendente";
+}
+
+function renderContractTimeline(data) {
+  if (!contractTimelineStatus || !contractTimelineList) return;
+  contractTimelineList.innerHTML = "";
+
+  if (!data.contractActive || !data.contracts || !data.contracts.length) {
+    contractTimelineStatus.textContent = "Contrato ainda nao ativado pelo administrador.";
+    return;
+  }
+
+  contractTimelineStatus.textContent = "Contratos ativos. Acompanhe abaixo as etapas cadastradas pelo engenheiro.";
+
+  data.contracts.forEach((contract) => {
+    const contractBox = document.createElement("details");
+    contractBox.className = "pending-item";
+    contractBox.open = true;
+
+    const total = contract?.result?.totalSuggested;
+    const summary = document.createElement("summary");
+    summary.textContent = `Contrato #${contract.budgetId}${typeof total === "number" ? ` - R$ ${total.toFixed(2)}` : ""}`;
+    contractBox.appendChild(summary);
+
+    if (!contract.items || !contract.items.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "Nenhuma atividade cadastrada no momento.";
+      contractBox.appendChild(empty);
+    } else {
+      contract.items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "timeline-item";
+        row.innerHTML = `
+          <div>
+            <strong>${item.title}</strong>
+            <p>${item.description || "Sem descricao."}</p>
+            <small>Prazo: ${item.deadline ? new Date(item.deadline).toLocaleDateString("pt-BR") : "Nao definido"}</small>
+          </div>
+          <span class="status-chip status-${item.status || "pendente"}">${formatTimelineStatus(item.status)}</span>
+        `;
+        contractBox.appendChild(row);
+      });
+    }
+
+    contractTimelineList.appendChild(contractBox);
+  });
+}
+
+async function loadContractTimeline() {
+  if (!contractTimelineStatus || !contractTimelineList) return;
+  contractTimelineStatus.textContent = "Carregando acompanhamento...";
+  const response = await fetch("/timeline/me", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    contractTimelineStatus.textContent = "Falha ao carregar acompanhamento do contrato.";
+    await configureMeetingContracts([]);
+    return;
+  }
+
+  const data = await response.json();
+  renderContractTimeline(data);
+  await configureMeetingContracts(data.contracts || []);
+}
 
 async function loadQuestionMeta() {
   try {

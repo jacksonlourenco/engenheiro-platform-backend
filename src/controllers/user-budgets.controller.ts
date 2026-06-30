@@ -10,7 +10,7 @@ export async function listBudgets(req: Request, res: Response): Promise<Response
   }
 
   const result = await pool.query(
-    "SELECT id, profile, answers, result, accepted, created_at FROM budgets WHERE user_id = $1 ORDER BY created_at DESC",
+    "SELECT id, profile, answers, result, accepted, contract_active, created_at FROM budgets WHERE user_id = $1 ORDER BY created_at DESC",
     [userId],
   );
 
@@ -34,7 +34,7 @@ export async function createBudget(req: Request, res: Response): Promise<Respons
     `
       INSERT INTO budgets (user_id, profile, answers, result, accepted)
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, profile, answers, result, accepted, created_at
+      RETURNING id, profile, answers, result, accepted, contract_active, created_at
     `,
     [userId, profile, answers, result, Boolean(accepted)],
   );
@@ -71,9 +71,10 @@ export async function updateBudget(req: Request, res: Response): Promise<Respons
         WHERE id = $2 AND user_id = $3
       )
       UPDATE budgets
-      SET accepted = $1
+      SET accepted = $1,
+          contract_active = CASE WHEN $1 = FALSE THEN FALSE ELSE contract_active END
       WHERE id = $2 AND user_id = $3
-      RETURNING id, profile, answers, result, accepted, created_at,
+      RETURNING id, profile, answers, result, accepted, contract_active, created_at,
                 (SELECT accepted FROM prev) AS prev_accepted
     `,
     [Boolean(accepted), budgetId, userId],

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
@@ -31,6 +31,8 @@
         <button class="admin-nav-item" type="button" data-tab="users">Usuarios</button>
         <button class="admin-nav-item" type="button" data-tab="discounts">Descontos</button>
         <button class="admin-nav-item" type="button" data-tab="budgets">Orcamentos</button>
+        <button class="admin-nav-item" type="button" data-tab="timeline">Timeline</button>
+        <button class="admin-nav-item" type="button" data-tab="meetings">Agenda</button>
         <button class="admin-nav-item" type="button" data-tab="budget-settings">Config Orcamento</button>
       </aside>
 
@@ -187,17 +189,21 @@
         <section class="admin-view hidden" id="view-discounts" data-view="discounts">
           <div class="section-head">
             <h2>Descontos</h2>
-            <p>Defina desconto por usuario com inicio e fim de validade.</p>
+            <p>Crie descontos globais ou direcione o beneficio para um usuario especifico.</p>
           </div>
           <div class="card">
             <div class="field-group" style="margin-bottom: 16px;">
-              <h3>Desconto global (todos os usuarios)</h3>
-              <p class="mini-help">Aplica para todos os usuarios que nao tenham um desconto individual ativo.</p>
-              <form class="form" id="global-discount-form">
+              <h3>Novo desconto</h3>
+              <p class="mini-help">Deixe o usuario em branco para aplicar a todos. Informe e-mail ou CPF para aplicar somente a uma pessoa.</p>
+              <form class="form" id="discount-form">
                 <div class="two-col">
                   <label>
+                    Dar desconto a usuario especifico (opcional)
+                    <input type="text" name="userQuery" placeholder="E-mail ou CPF do usuario" />
+                  </label>
+                  <label>
                     Percentual (0 a 100)
-                    <input type="number" min="0" max="100" step="0.5" name="percent" />
+                    <input type="number" min="0.5" max="100" step="0.5" name="percent" required />
                   </label>
                   <label>
                     Inicio (opcional)
@@ -209,22 +215,23 @@
                   </label>
                 </div>
                 <div class="discount-actions" style="margin-top: 10px;">
-                  <button class="btn primary" type="submit">Salvar desconto global</button>
-                  <button class="btn remove" type="button" id="clear-global-discount">Remover</button>
-                  <span class="form-status" id="global-discount-message"></span>
+                  <button class="btn primary" type="submit">Adicionar desconto</button>
+                  <span class="form-status" id="discount-message"></span>
                 </div>
               </form>
             </div>
 
-            <form class="form" id="discount-search-form">
-              <label>
-                Email ou CPF
-                <input type="text" name="query" />
-              </label>
-              <button class="btn primary" type="submit">Buscar</button>
-            </form>
-            <div class="user-list" id="discount-list"></div>
-            <p class="form-status" id="discount-message"></p>
+            <div class="active-discounts-section">
+              <div class="discount-section-head">
+                <div>
+                  <h3>Descontos ativos e agendados</h3>
+                  <p class="mini-help">A lista inclui descontos globais e individuais. Cada desconto pode ser removido separadamente.</p>
+                </div>
+                <button class="btn secondary" type="button" id="refresh-discounts">Atualizar lista</button>
+              </div>
+              <div class="active-discounts-grid" id="active-discounts-list"></div>
+            </div>
+
           </div>
         </section>
 
@@ -246,6 +253,184 @@
           </div>
         </section>
 
+        <section class="admin-view hidden" id="view-timeline" data-view="timeline">
+          <div class="section-head">
+            <h2>Timeline</h2>
+            <p>Gerencie o contrato e as atividades pelo ID do orcamento aceito.</p>
+          </div>
+          <div class="card">
+            <form class="form" id="timeline-search-form">
+              <label>
+                ID do contrato / orcamento
+                <input type="number" min="1" name="budgetId" placeholder="Ex.: 12" />
+              </label>
+              <button class="btn primary" type="submit">Buscar contrato</button>
+            </form>
+            <p class="form-status" id="timeline-search-message"></p>
+          </div>
+          <div class="card hidden" id="timeline-panel">
+            <div class="section-head compact">
+              <h3 id="timeline-title">Timeline do contrato</h3>
+              <p id="timeline-subtitle">Busque um contrato pelo ID para gerenciar.</p>
+            </div>
+            <div class="contract-summary" id="timeline-contract-summary"></div>
+            <div class="form-actions">
+              <button class="btn primary" type="button" id="contract-activate">Ativar contrato</button>
+              <button class="btn remove" type="button" id="contract-deactivate">Desativar contrato</button>
+            </div>
+            <form class="form" id="timeline-form">
+              <input type="hidden" name="itemId" />
+              <label>
+                Nome da atividade
+                <input type="text" name="title" placeholder="Ex.: Reuniao inicial, ART, Nota fiscal" />
+              </label>
+              <label>
+                Descricao
+                <textarea name="description" rows="3" placeholder="Explique o que sera acompanhado nesta etapa."></textarea>
+              </label>
+              <div class="two-col">
+                <label>
+                  Prazo
+                  <input type="date" name="deadline" />
+                </label>
+                <label>
+                  Status
+                  <select name="status">
+                    <option value="pendente">Pendente</option>
+                    <option value="em_andamento">Em andamento</option>
+                    <option value="concluido">Concluido</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn primary" type="submit" id="timeline-save">Adicionar atividade</button>
+                <button class="btn ghost" type="button" id="timeline-cancel">Cancelar edicao</button>
+              </div>
+              <p class="form-status" id="timeline-message"></p>
+            </form>
+            <div class="timeline-list" id="timeline-list"></div>
+          </div>
+        </section>
+
+        <section class="admin-view hidden" id="view-meetings" data-view="meetings">
+          <div class="section-head">
+            <h2>Agenda</h2>
+            <p>Abra somente a secao que deseja configurar. As reunioes continuam divididas em blocos de 30 minutos.</p>
+          </div>
+
+          <div class="agenda-sections">
+            <details class="card agenda-session agenda-dropdown">
+              <summary class="agenda-session-head"><span class="agenda-session-number">01</span><div><h3>Bloqueio</h3><p>Dias inteiros ou periodos recorrentes.</p></div></summary>
+              <div class="agenda-session-body">
+                <div class="form-actions">
+                  <button class="btn remove" type="button" id="block-saturday">Bloquear sabados</button>
+                  <button class="btn remove" type="button" id="block-sunday">Bloquear domingos</button>
+                </div>
+                <form class="form" id="block-rule-form">
+                  <label>Nome do bloqueio<input type="text" name="label" placeholder="Ex.: Compromisso externo" required /></label>
+                  <div class="two-col">
+                    <label>Aplicar por<select name="mode"><option value="weekday">Dias da semana</option><option value="date">Data especifica</option></select></label>
+                    <label class="block-date-field">Data<input type="date" name="blockDate" /></label>
+                    <label>Inicio (opcional)<input type="time" name="startTime" step="1800" /></label>
+                    <label>Fim (opcional)<input type="time" name="endTime" step="1800" /></label>
+                  </div>
+                  <fieldset class="weekday-fieldset block-weekdays">
+                    <legend>Dias bloqueados</legend>
+                    <div class="weekday-picker">
+                      <label><input type="checkbox" name="weekdays" value="1" /><span>Seg</span></label><label><input type="checkbox" name="weekdays" value="2" /><span>Ter</span></label><label><input type="checkbox" name="weekdays" value="3" /><span>Qua</span></label><label><input type="checkbox" name="weekdays" value="4" /><span>Qui</span></label><label><input type="checkbox" name="weekdays" value="5" /><span>Sex</span></label><label><input type="checkbox" name="weekdays" value="6" /><span>Sab</span></label><label><input type="checkbox" name="weekdays" value="0" /><span>Dom</span></label>
+                    </div>
+                  </fieldset>
+                  <p class="mini-help">Sem horario, bloqueia o dia inteiro. Com inicio e fim, bloqueia somente o periodo.</p>
+                  <button class="btn primary" type="submit">Salvar bloqueio</button><p class="form-status" id="block-rule-message"></p>
+                </form>
+                <div class="timeline-list" id="block-rule-list"></div>
+              </div>
+            </details>
+
+            <details class="card agenda-session agenda-dropdown">
+              <summary class="agenda-session-head"><span class="agenda-session-number">02</span><div><h3>Feriados</h3><p>Ausencias pontuais ou repetidas anualmente.</p></div></summary>
+              <div class="agenda-session-body">
+                <form class="form" id="holiday-form">
+                  <div class="two-col"><label>Nome do feriado<input type="text" name="label" placeholder="Ex.: Natal" required /></label><label>Data<input type="date" name="blockDate" required /></label></div>
+                  <label class="checkbox-line"><input type="checkbox" name="annual" /> Repetir todos os anos</label>
+                  <button class="btn primary" type="submit">Adicionar feriado</button><p class="form-status" id="holiday-message"></p>
+                </form>
+                <div class="timeline-list" id="holiday-list"></div>
+              </div>
+            </details>
+
+            <details class="card agenda-session agenda-dropdown">
+              <summary class="agenda-session-head"><span class="agenda-session-number">03</span><div><h3>Ferias</h3><p>Bloqueio de um intervalo continuo de datas.</p></div></summary>
+              <div class="agenda-session-body">
+                <form class="form" id="vacation-form">
+                  <label>Identificacao<input type="text" name="label" placeholder="Ex.: Ferias de janeiro" required /></label>
+                  <div class="two-col"><label>Primeiro dia<input type="date" name="startDate" required /></label><label>Ultimo dia<input type="date" name="endDate" required /></label></div>
+                  <button class="btn primary" type="submit">Programar ferias</button><p class="form-status" id="vacation-message"></p>
+                </form>
+                <div class="timeline-list" id="vacation-list"></div>
+              </div>
+            </details>
+
+            <details class="card agenda-session agenda-dropdown">
+              <summary class="agenda-session-head"><span class="agenda-session-number">04</span><div><h3>Dias disponiveis</h3><p>Rotina semanal de atendimento.</p></div></summary>
+              <div class="agenda-session-body">
+                <form class="form" id="work-schedule-form">
+                  <label>Nome da rotina<input type="text" name="label" value="Horario de atendimento" /></label>
+                  <fieldset class="weekday-fieldset"><legend>Dias de atendimento</legend><div class="weekday-picker">
+                    <label><input type="checkbox" name="weekdays" value="1" checked /><span>Seg</span></label><label><input type="checkbox" name="weekdays" value="2" checked /><span>Ter</span></label><label><input type="checkbox" name="weekdays" value="3" checked /><span>Qua</span></label><label><input type="checkbox" name="weekdays" value="4" checked /><span>Qui</span></label><label><input type="checkbox" name="weekdays" value="5" checked /><span>Sex</span></label><label><input type="checkbox" name="weekdays" value="6" /><span>Sab</span></label><label><input type="checkbox" name="weekdays" value="0" /><span>Dom</span></label>
+                  </div></fieldset>
+                  <div class="two-col"><label>Inicio<input type="time" name="startTime" step="1800" required /></label><label>Fim<input type="time" name="endTime" step="1800" required /></label></div>
+                  <p class="mini-help">Use horarios terminados em :00 ou :30. Salvar novamente substitui a rotina dos dias selecionados.</p>
+                  <button class="btn primary" type="submit">Salvar dias disponiveis</button><p class="form-status" id="work-schedule-message"></p>
+                </form>
+                <div class="timeline-list" id="work-schedule-list"></div>
+                <details class="availability-exception"><summary>Adicionar disponibilidade em uma data especifica</summary>
+                  <form class="form" id="availability-form"><div class="two-col"><label>Data<input type="date" name="date" /></label><label>Inicio<input type="time" name="startTime" step="1800" /></label><label>Fim<input type="time" name="endTime" step="1800" /></label></div><button class="btn primary" type="submit">Adicionar disponibilidade pontual</button><p class="form-status" id="availability-message"></p></form>
+                  <div class="timeline-list" id="availability-list"></div>
+                </details>
+              </div>
+            </details>
+
+            <details class="card agenda-session agenda-dropdown">
+              <summary class="agenda-session-head"><span class="agenda-session-number">05</span><div><h3>Horario de almoco</h3><p>Bloqueio aplicado somente aos dias de trabalho.</p></div></summary>
+              <div class="agenda-session-body">
+                <form class="form" id="lunch-form">
+                  <label>Identificacao<input type="text" name="label" value="Horario de almoco" required /></label>
+                  <div class="two-col"><label>Inicio do almoco<input type="time" name="startTime" step="1800" required /></label><label>Fim do almoco<input type="time" name="endTime" step="1800" required /></label></div>
+                  <p class="mini-help">Este periodo sera ignorado em dias sem expediente configurado.</p>
+                  <button class="btn primary" type="submit">Salvar horario de almoco</button><p class="form-status" id="lunch-message"></p>
+                </form>
+                <div class="timeline-list" id="lunch-list"></div>
+              </div>
+            </details>
+
+            <details class="card agenda-session agenda-dropdown">
+              <summary class="agenda-session-head"><span class="agenda-session-number">06</span><div><h3>Excecao</h3><p>Bloqueio de horario em uma data especifica.</p></div></summary>
+              <div class="agenda-session-body">
+                <form class="form" id="exception-form">
+                  <label>Motivo<input type="text" name="label" placeholder="Ex.: Consulta medica" required /></label>
+                  <div class="two-col"><label>Data<input type="date" name="blockDate" required /></label><label>Inicio<input type="time" name="startTime" step="1800" required /></label><label>Fim<input type="time" name="endTime" step="1800" required /></label></div>
+                  <button class="btn primary" type="submit">Adicionar excecao</button><p class="form-status" id="exception-message"></p>
+                </form>
+                <div class="timeline-list" id="exception-list"></div>
+              </div>
+            </details>
+
+            <details class="card agenda-session agenda-dropdown agenda-wide">
+              <summary class="agenda-session-head"><span class="agenda-session-number">07</span><div><h3>Reunioes agendadas</h3><p>Consulte os clientes e horarios confirmados.</p></div></summary>
+              <div class="agenda-session-body"><div class="timeline-list" id="meeting-bookings-list"></div></div>
+            </details>
+
+            <details class="card agenda-session agenda-dropdown agenda-wide" open>
+              <summary class="agenda-session-head"><span class="agenda-session-number">08</span><div><h3>Agenda visual</h3><p>Calendario mensal e blocos de 30 minutos.</p></div></summary>
+              <div class="agenda-session-body">
+                <p class="mini-help">Vermelho: bloqueado. Branco: disponivel. Verde: reuniao agendada.</p>
+                <form class="form" id="calendar-form"><div class="two-col"><label>Mes<select name="month"></select></label><label>Ano<select name="year"></select></label></div><button class="btn primary" type="submit">Atualizar calendario</button></form>
+                <div class="calendar-grid" id="calendar-grid"></div><div class="timeline-list" id="day-schedule-list"></div>
+              </div>
+            </details>
+          </div>
+        </section>
         <section class="admin-view hidden" id="view-budget-settings" data-view="budget-settings">
           <div class="section-head">
             <h2>Configuracao do orcamento</h2>
@@ -256,16 +441,16 @@
               <div class="admin-grid">
                 <div class="field-group">
                   <h3>Precos base</h3>
-                  <p class="mini-help">Valores base usados no calculo (ex.: R$/m²). Se ficar em branco, usamos o padrao do sistema.</p>
+                  <p class="mini-help">Valores base usados no calculo (ex.: R$/mÂ²). Se ficar em branco, usamos o padrao do sistema.</p>
                   <div class="two-col">
-                    <label>Estrutural (R$/m²)<input type="number" step="0.001" min="0" name="base_estrutural" /></label>
-                    <label>Hidraulico (R$/m²)<input type="number" step="0.001" min="0" name="base_hidraulico" /></label>
-                    <label>Sanitario (R$/m²)<input type="number" step="0.001" min="0" name="base_sanitario" /></label>
-                    <label>Pluvial (R$/m²)<input type="number" step="0.001" min="0" name="base_pluvial" /></label>
-                    <label>Eletrico (R$/m²)<input type="number" step="0.001" min="0" name="base_eletrico" /></label>
-                    <label>Incendio (R$/m²)<input type="number" step="0.001" min="0" name="base_incendio" /></label>
-                    <label>Pacote HSP (R$/m²)<input type="number" step="0.001" min="0" name="base_pacoteHSP" /></label>
-                    <label>Pacote Completo (R$/m²)<input type="number" step="0.001" min="0" name="base_pacoteCompleto" /></label>
+                    <label>Estrutural (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_estrutural" /></label>
+                    <label>Hidraulico (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_hidraulico" /></label>
+                    <label>Sanitario (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_sanitario" /></label>
+                    <label>Pluvial (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_pluvial" /></label>
+                    <label>Eletrico (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_eletrico" /></label>
+                    <label>Incendio (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_incendio" /></label>
+                    <label>Pacote HSP (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_pacoteHSP" /></label>
+                    <label>Pacote Completo (R$/mÂ²)<input type="number" step="0.001" min="0" name="base_pacoteCompleto" /></label>
                   </div>
                 </div>
 
@@ -291,7 +476,7 @@
 
               <div class="field-group" style="margin-top: 18px;">
                 <h3>Faixas de area</h3>
-                <p class="mini-help">Defina como o valor muda por faixa de area (m²). O sistema procura a faixa onde a area se encaixa.</p>
+                <p class="mini-help">Defina como o valor muda por faixa de area (mÂ²). O sistema procura a faixa onde a area se encaixa.</p>
                 <div id="area-factors-table" class="table"></div>
                 <button class="btn add" type="button" id="add-area-factor">Adicionar faixa</button>
               </div>

@@ -4,12 +4,10 @@ const form = document.getElementById("landing-form");
 const messageEl = document.getElementById("admin-message");
 const userSearchForm = document.getElementById("user-search-form");
 const userList = document.getElementById("user-list");
-const discountSearchForm = document.getElementById("discount-search-form");
-const discountList = document.getElementById("discount-list");
+const discountForm = document.getElementById("discount-form");
 const discountMessage = document.getElementById("discount-message");
-const globalDiscountForm = document.getElementById("global-discount-form");
-const globalDiscountMessage = document.getElementById("global-discount-message");
-const clearGlobalDiscountButton = document.getElementById("clear-global-discount");
+const activeDiscountsList = document.getElementById("active-discounts-list");
+const refreshDiscountsButton = document.getElementById("refresh-discounts");
 const budgetSearchForm = document.getElementById("budget-search-form");
 const budgetList = document.getElementById("budget-list");
 const budgetAdminMessage = document.getElementById("budget-admin-message");
@@ -24,9 +22,50 @@ const areaFactorsTable = document.getElementById("area-factors-table");
 const addAreaFactorButton = document.getElementById("add-area-factor");
 const qProfileSelect = document.getElementById("q-profile");
 const budgetQuestionsEditor = document.getElementById("budget-questions-editor");
+const timelineSearchForm = document.getElementById("timeline-search-form");
+const timelineSearchMessage = document.getElementById("timeline-search-message");
+const timelinePanel = document.getElementById("timeline-panel");
+const timelineTitle = document.getElementById("timeline-title");
+const timelineSubtitle = document.getElementById("timeline-subtitle");
+const timelineContractSummary = document.getElementById("timeline-contract-summary");
+const timelineForm = document.getElementById("timeline-form");
+const timelineList = document.getElementById("timeline-list");
+const timelineMessage = document.getElementById("timeline-message");
+const timelineSave = document.getElementById("timeline-save");
+const timelineCancel = document.getElementById("timeline-cancel");
+const contractActivate = document.getElementById("contract-activate");
+const contractDeactivate = document.getElementById("contract-deactivate");
+const availabilityForm = document.getElementById("availability-form");
+const availabilityMessage = document.getElementById("availability-message");
+const availabilityList = document.getElementById("availability-list");
+const meetingBookingsList = document.getElementById("meeting-bookings-list");
+const blockRuleForm = document.getElementById("block-rule-form");
+const blockRuleMessage = document.getElementById("block-rule-message");
+const blockRuleList = document.getElementById("block-rule-list");
+const blockSaturdayButton = document.getElementById("block-saturday");
+const blockSundayButton = document.getElementById("block-sunday");
+const holidayForm = document.getElementById("holiday-form");
+const holidayMessage = document.getElementById("holiday-message");
+const holidayList = document.getElementById("holiday-list");
+const vacationForm = document.getElementById("vacation-form");
+const vacationMessage = document.getElementById("vacation-message");
+const vacationList = document.getElementById("vacation-list");
+const workScheduleForm = document.getElementById("work-schedule-form");
+const workScheduleMessage = document.getElementById("work-schedule-message");
+const workScheduleList = document.getElementById("work-schedule-list");
+const lunchForm = document.getElementById("lunch-form");
+const lunchMessage = document.getElementById("lunch-message");
+const lunchList = document.getElementById("lunch-list");
+const exceptionForm = document.getElementById("exception-form");
+const exceptionMessage = document.getElementById("exception-message");
+const exceptionList = document.getElementById("exception-list");
+const calendarForm = document.getElementById("calendar-form");
+const calendarGrid = document.getElementById("calendar-grid");
+const dayScheduleList = document.getElementById("day-schedule-list");
 
 let budgetSettingsState = {};
 let budgetQuestionMeta = { leigo: null, tecnico: null };
+let selectedTimelineBudget = null;
 
 if (!token) {
   window.location.href = "/";
@@ -54,11 +93,13 @@ tabButtons.forEach((btn) => {
     }
     if (btn.dataset.tab === "discounts") {
       discountMessage.textContent = "";
-      discountList.innerHTML = "";
-      loadGlobalDiscount();
+      loadActiveDiscounts();
     }
     if (btn.dataset.tab === "budget-settings") {
       loadBudgetSettings();
+    }
+    if (btn.dataset.tab === "meetings") {
+      loadMeetingAgenda();
     }
   });
 });
@@ -240,25 +281,805 @@ function renderUsers(users) {
         <div>${user.email} | ${user.cpf || "-"}</div>
         <div>${user.phone || "-"}</div>
       </div>
-      <label class="switch">
-        <input type="checkbox" ${user.contract_active ? "checked" : ""} />
-        <span>Contrato ativo</span>
-      </label>
+      <p class="form-status">Contratos ativos sao gerenciados individualmente na aba Timeline pelo ID do orcamento.</p>
     `;
 
-    const checkbox = item.querySelector(".switch input");
-    checkbox.addEventListener("change", async () => {
-      await fetch(`/admin/users/${user.id}/contract`, {
-        method: "PATCH",
+    userList.appendChild(item);
+  });
+}
+
+function hideTimelinePanel() {
+  if (timelinePanel) timelinePanel.classList.add("hidden");
+  selectedTimelineBudget = null;
+}
+
+function resetTimelineForm() {
+  if (!timelineForm) return;
+  timelineForm.reset();
+  getTimelineField("itemId").value = "";
+  if (timelineSave) timelineSave.textContent = "Adicionar atividade";
+}
+
+function getTimelineField(name) {
+  return timelineForm.querySelector(`[name='${name}']`);
+}
+
+function formatTimelineStatus(status) {
+  const labels = {
+    pendente: "Pendente",
+    em_andamento: "Em andamento",
+    concluido: "Concluido",
+  };
+  return labels[status] || "Pendente";
+}
+
+function timelineStatusClass(status) {
+  return `status-chip status-${status || "pendente"}`;
+}
+
+function toDateInput(value) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
+}
+
+async function loadTimelineForBudgetId(budgetId) {
+  if (!timelinePanel || !timelineList) return;
+  timelineSearchMessage.textContent = "";
+  timelinePanel.classList.remove("hidden");
+  timelineTitle.textContent = `Timeline do contrato #${budgetId}`;
+  timelineSubtitle.textContent = "Carregando contrato...";
+  timelineMessage.textContent = "";
+  timelineList.textContent = "Carregando...";
+
+  const response = await fetch(`/admin/budgets/${budgetId}/timeline`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    timelineList.textContent = "";
+    timelineSearchMessage.textContent = data.message || "Falha ao carregar timeline.";
+    return;
+  }
+
+  selectedTimelineBudget = data.budget;
+  renderTimelineHeader(data.budget);
+  renderTimelineItems(data.items || []);
+}
+
+function renderTimelineHeader(budget) {
+  const total = budget?.result?.totalSuggested;
+  timelineTitle.textContent = `Timeline do contrato #${budget.id}`;
+  timelineSubtitle.textContent = budget.contract_active
+    ? "Contrato ativo. Edite as etapas que o cliente visualizara no dashboard."
+    : "Contrato inativo. Ative o contrato para iniciar/editar a timeline.";
+  timelineContractSummary.innerHTML = `
+    <div class="timeline-item">
+      <div>
+        <strong>${budget.user_name || "-"}</strong>
+        <p>${budget.user_email || "-"} | CPF: ${budget.user_cpf || "-"}</p>
+        <small>Telefone: ${budget.user_phone || "-"} | Valor: ${formatMoney(total)} | Orcamento aceito: ${budget.accepted ? "Sim" : "Nao"}</small>
+      </div>
+      <span class="${timelineStatusClass(budget.contract_active ? "concluido" : "pendente")}">
+        ${budget.contract_active ? "Contrato ativo" : "Contrato inativo"}
+      </span>
+    </div>
+  `;
+  if (contractActivate) contractActivate.disabled = Boolean(budget.contract_active);
+  if (contractDeactivate) contractDeactivate.disabled = !budget.contract_active;
+  if (timelineForm) {
+    timelineForm.querySelectorAll("input, textarea, select, button").forEach((field) => {
+      if (field.id === "timeline-cancel") return;
+      field.disabled = !budget.contract_active;
+    });
+  }
+}
+
+function renderTimelineItems(items) {
+  timelineList.innerHTML = "";
+  if (!items.length) {
+    timelineList.textContent = "Nenhuma atividade cadastrada.";
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "timeline-item";
+    row.innerHTML = `
+      <div>
+        <strong>${item.title}</strong>
+        <p>${item.description || "Sem descricao."}</p>
+        <small>Prazo: ${item.deadline ? new Date(item.deadline).toLocaleDateString("pt-BR") : "Nao definido"}</small>
+      </div>
+      <div class="timeline-actions">
+        <span class="${timelineStatusClass(item.status)}">${formatTimelineStatus(item.status)}</span>
+        <button class="btn ghost edit-timeline" type="button">Editar</button>
+        <button class="btn remove delete-timeline" type="button">Remover</button>
+      </div>
+    `;
+
+    row.querySelector(".edit-timeline").addEventListener("click", () => {
+      getTimelineField("itemId").value = item.id;
+      getTimelineField("title").value = item.title || "";
+      getTimelineField("description").value = item.description || "";
+      getTimelineField("deadline").value = toDateInput(item.deadline);
+      getTimelineField("status").value = item.status || "pendente";
+      if (timelineSave) timelineSave.textContent = "Salvar atividade";
+      timelineMessage.textContent = "";
+    });
+
+    row.querySelector(".delete-timeline").addEventListener("click", async () => {
+      const ok = window.confirm("Remover esta atividade da timeline?");
+      if (!ok) return;
+      const response = await fetch(`/admin/timeline/${item.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        timelineMessage.textContent = "Falha ao remover atividade.";
+        return;
+      }
+      await loadTimelineForBudgetId(selectedTimelineBudget.id);
+    });
+
+    timelineList.appendChild(row);
+  });
+}
+
+if (timelineCancel) {
+  timelineCancel.addEventListener("click", () => {
+    resetTimelineForm();
+    if (timelineMessage) timelineMessage.textContent = "";
+  });
+}
+
+if (timelineForm) {
+  timelineForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!selectedTimelineBudget) return;
+
+    timelineMessage.textContent = "";
+    const itemId = getTimelineField("itemId").value;
+    const payload = {
+      title: getTimelineField("title").value,
+      description: getTimelineField("description").value,
+      deadline: getTimelineField("deadline").value || null,
+      status: getTimelineField("status").value,
+    };
+
+    const response = await fetch(
+      itemId ? `/admin/timeline/${itemId}` : `/admin/budgets/${selectedTimelineBudget.id}/timeline`,
+      {
+        method: itemId ? "PATCH" : "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ active: checkbox.checked }),
+        body: JSON.stringify(payload),
+      },
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      timelineMessage.textContent = data.message || "Falha ao salvar atividade.";
+      return;
+    }
+
+    timelineMessage.textContent = "Atividade salva.";
+    resetTimelineForm();
+    await loadTimelineForBudgetId(selectedTimelineBudget.id);
+  });
+}
+
+if (timelineSearchForm) {
+  timelineSearchForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const budgetId = Number(timelineSearchForm.budgetId.value);
+    if (!Number.isInteger(budgetId) || budgetId <= 0) {
+      timelineSearchMessage.textContent = "Informe um ID de contrato valido.";
+      return;
+    }
+    await loadTimelineForBudgetId(budgetId);
+  });
+}
+
+async function updateSelectedContract(active) {
+  if (!selectedTimelineBudget) return;
+  timelineMessage.textContent = "";
+  const response = await fetch(`/admin/budgets/${selectedTimelineBudget.id}/contract`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ active }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    timelineMessage.textContent = data.message || "Falha ao atualizar contrato.";
+    return;
+  }
+
+  timelineMessage.textContent = active ? "Contrato ativado." : "Contrato desativado.";
+  await loadTimelineForBudgetId(selectedTimelineBudget.id);
+}
+
+if (contractActivate) {
+  contractActivate.addEventListener("click", () => updateSelectedContract(true));
+}
+
+if (contractDeactivate) {
+  contractDeactivate.addEventListener("click", () => updateSelectedContract(false));
+}
+
+function todayDateInput() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function plusDaysDateInput(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDateOnlyBR(value) {
+  if (!value) return "-";
+  const [year, month, day] = String(value).slice(0, 10).split("-");
+  if (!year || !month || !day) return String(value);
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateTimeBR(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function normalizeTimeText(value) {
+  return String(value || "").slice(0, 5);
+}
+
+async function loadAvailability() {
+  if (!availabilityList) return;
+  availabilityList.textContent = "Carregando...";
+  const qs = `?from=${todayDateInput()}&to=${plusDaysDateInput(45)}`;
+  const response = await fetch(`/meetings/admin/availability${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    availabilityList.textContent = "Falha ao carregar disponibilidade.";
+    return;
+  }
+
+  const items = await response.json();
+  availabilityList.innerHTML = "";
+  if (!items.length) {
+    availabilityList.textContent = "Nenhum periodo cadastrado.";
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "timeline-item";
+    row.innerHTML = `
+      <div>
+        <strong>${formatDateOnlyBR(item.meeting_date)}</strong>
+        <p>${normalizeTimeText(item.start_time)} ate ${normalizeTimeText(item.end_time)}</p>
+        <small>Os clientes visualizam este periodo em blocos de 30 minutos.</small>
+      </div>
+      <div class="timeline-actions">
+        <button class="btn remove" type="button">Remover / bloquear</button>
+      </div>
+    `;
+    row.querySelector("button").addEventListener("click", async () => {
+      const ok = window.confirm("Remover este periodo disponivel?");
+      if (!ok) return;
+      const deleteResponse = await fetch(`/meetings/admin/availability/${item.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
+      if (!deleteResponse.ok) {
+        availabilityMessage.textContent = "Falha ao remover periodo.";
+        return;
+      }
+      availabilityMessage.textContent = "Periodo removido.";
+      await loadAvailability();
+    });
+    availabilityList.appendChild(row);
+  });
+}
+
+async function loadMeetingBookings() {
+  if (!meetingBookingsList) return;
+  meetingBookingsList.textContent = "Carregando...";
+  const response = await fetch("/meetings/admin/bookings", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    meetingBookingsList.textContent = "Falha ao carregar reunioes.";
+    return;
+  }
+
+  const items = await response.json();
+  meetingBookingsList.innerHTML = "";
+  if (!items.length) {
+    meetingBookingsList.textContent = "Nenhuma reuniao agendada.";
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "timeline-item";
+    row.innerHTML = `
+      <div>
+        <strong>${formatDateTimeBR(item.starts_at)}</strong>
+        <p>${item.user_name || "-"} | ${item.user_email || "-"} | CPF: ${item.user_cpf || "-"}</p>
+        <small>Contrato: #${item.budget_id || "-"} | Telefone: ${item.user_phone || "-"} | Status: ${item.status || "-"}</small>
+      </div>
+      <span class="status-chip status-${item.status === "scheduled" ? "concluido" : "pendente"}">${item.status === "scheduled" ? "Agendada" : item.status}</span>
+    `;
+    meetingBookingsList.appendChild(row);
+  });
+}
+
+async function loadMeetingAgenda() {
+  await loadBlockRules();
+  await loadAvailability();
+  await loadMeetingBookings();
+  await loadAdminCalendar();
+}
+
+if (availabilityForm) {
+  availabilityForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    availabilityMessage.textContent = "";
+
+    const payload = {
+      date: availabilityForm.date.value,
+      startTime: availabilityForm.startTime.value,
+      endTime: availabilityForm.endTime.value,
+    };
+
+    const response = await fetch("/meetings/admin/availability", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
 
-    userList.appendChild(item);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      availabilityMessage.textContent = data.message || "Falha ao salvar disponibilidade.";
+      return;
+    }
+
+    availabilityMessage.textContent = "Disponibilidade adicionada.";
+    availabilityForm.reset();
+    await loadAvailability();
+  });
+}
+
+function monthInputValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+const monthNames = [
+  "Janeiro",
+  "Fevereiro",
+  "Marco",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+function setupCalendarSelectors() {
+  if (!calendarForm || calendarForm.dataset.ready === "1") return;
+  const now = new Date();
+  monthNames.forEach((name, index) => {
+    const option = document.createElement("option");
+    option.value = String(index + 1).padStart(2, "0");
+    option.textContent = name;
+    calendarForm.month.appendChild(option);
+  });
+  for (let year = now.getFullYear() - 1; year <= now.getFullYear() + 3; year += 1) {
+    const option = document.createElement("option");
+    option.value = String(year);
+    option.textContent = String(year);
+    calendarForm.year.appendChild(option);
+  }
+  calendarForm.month.value = String(now.getMonth() + 1).padStart(2, "0");
+  calendarForm.year.value = String(now.getFullYear());
+  calendarForm.dataset.ready = "1";
+}
+
+function selectedCalendarMonth() {
+  setupCalendarSelectors();
+  return `${calendarForm.year.value}-${calendarForm.month.value}`;
+}
+
+function weekdayLabel(value) {
+  const labels = ["Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"];
+  if (value === null || value === undefined || value === "") return "Todos os dias";
+  return labels[Number(value)] || "-";
+}
+
+function formatBlockRule(rule) {
+  if (rule.block_type === "date") return formatDateOnlyBR(rule.block_date);
+  if (rule.block_type === "weekday") return `Dia inteiro: ${weekdayLabel(rule.weekday)}`;
+  if (rule.block_type === "period") return `${formatDateOnlyBR(rule.block_date)}, ${normalizeTimeText(rule.start_time)} ate ${normalizeTimeText(rule.end_time)}`;
+  if (rule.block_type === "holiday") return `${formatDateOnlyBR(rule.block_date)}${rule.annual ? " - repete anualmente" : ""}`;
+  if (rule.block_type === "vacation") return `${formatDateOnlyBR(rule.block_date)} ate ${formatDateOnlyBR(rule.end_date)}`;
+  if (rule.block_type === "work_hours") return `${weekdayLabel(rule.weekday)}, ${normalizeTimeText(rule.start_time)} ate ${normalizeTimeText(rule.end_time)}`;
+  if (rule.block_type === "lunch") return `${normalizeTimeText(rule.start_time)} ate ${normalizeTimeText(rule.end_time)}, somente nos dias de trabalho`;
+  return `${weekdayLabel(rule.weekday)}, ${normalizeTimeText(rule.start_time)} ate ${normalizeTimeText(rule.end_time)}`;
+}
+
+function blockRuleTypeLabel(type) {
+  const labels = {
+    date: "Data bloqueada",
+    weekday: "Dia recorrente",
+    time_range: "Periodo recorrente",
+    period: "Periodo pontual",
+    holiday: "Feriado",
+    vacation: "Ferias",
+    work_hours: "Disponibilidade semanal",
+    lunch: "Horario de almoco",
+  };
+  return labels[type] || type;
+}
+
+async function createBlockRule(payload) {
+  const response = await fetch("/meetings/admin/block-rules", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || "Falha ao adicionar regra.");
+  return data;
+}
+
+function checkedWeekdays(formElement) {
+  return Array.from(formElement.querySelectorAll('input[name="weekdays"]:checked')).map((input) => Number(input.value));
+}
+
+async function removeMeetingRule(id, messageElement) {
+  const response = await fetch(`/meetings/admin/block-rules/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    if (messageElement) messageElement.textContent = "Falha ao remover configuracao.";
+    return;
+  }
+  if (messageElement) messageElement.textContent = "Configuracao removida.";
+  await loadMeetingAgenda();
+}
+
+function renderMeetingRules(items, container, emptyText, messageElement) {
+  if (!container) return;
+  container.innerHTML = "";
+  if (!items.length) {
+    container.innerHTML = `<p class="empty-state">${emptyText}</p>`;
+    return;
+  }
+
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "timeline-item agenda-rule-item";
+    row.innerHTML = `
+      <div>
+        <strong>${item.label}</strong>
+        <p>${formatBlockRule(item)}</p>
+        <small>${blockRuleTypeLabel(item.block_type)}</small>
+      </div>
+      <div class="timeline-actions"><button class="btn remove" type="button">Remover</button></div>
+    `;
+    row.querySelector("button").addEventListener("click", () => removeMeetingRule(item.id, messageElement));
+    container.appendChild(row);
+  });
+}
+
+async function loadBlockRules() {
+  [blockRuleList, holidayList, vacationList, workScheduleList, lunchList, exceptionList].forEach((container) => {
+    if (container) container.innerHTML = '<p class="empty-state">Carregando configuracoes...</p>';
+  });
+  const response = await fetch("/meetings/admin/block-rules", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    if (blockRuleList) blockRuleList.textContent = "Falha ao carregar configuracoes.";
+    return;
+  }
+
+  const items = await response.json();
+  renderMeetingRules(items.filter((item) => ["date", "weekday", "time_range"].includes(item.block_type)), blockRuleList, "Nenhum bloqueio cadastrado.", blockRuleMessage);
+  renderMeetingRules(items.filter((item) => item.block_type === "holiday"), holidayList, "Nenhum feriado cadastrado.", holidayMessage);
+  renderMeetingRules(items.filter((item) => item.block_type === "vacation"), vacationList, "Nenhum periodo de ferias cadastrado.", vacationMessage);
+  renderMeetingRules(items.filter((item) => item.block_type === "work_hours"), workScheduleList, "Nenhum dia disponivel configurado.", workScheduleMessage);
+  renderMeetingRules(items.filter((item) => item.block_type === "lunch"), lunchList, "Nenhum horario de almoco configurado.", lunchMessage);
+  renderMeetingRules(items.filter((item) => item.block_type === "period"), exceptionList, "Nenhuma excecao cadastrada.", exceptionMessage);
+}
+
+if (blockRuleForm) {
+  const updateBlockMode = () => {
+    const byDate = blockRuleForm.mode.value === "date";
+    blockRuleForm.blockDate.disabled = !byDate;
+    blockRuleForm.querySelector(".block-date-field").classList.toggle("is-disabled", !byDate);
+    blockRuleForm.querySelector(".block-weekdays").classList.toggle("is-disabled", byDate);
+  };
+  blockRuleForm.mode.addEventListener("change", updateBlockMode);
+  updateBlockMode();
+
+  blockRuleForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    blockRuleMessage.textContent = "";
+    const startTime = blockRuleForm.startTime.value || null;
+    const endTime = blockRuleForm.endTime.value || null;
+    if (Boolean(startTime) !== Boolean(endTime)) {
+      blockRuleMessage.textContent = "Preencha inicio e fim, ou deixe ambos vazios para bloquear o dia inteiro.";
+      return;
+    }
+
+    const base = { label: blockRuleForm.label.value, startTime, endTime, persistent: true };
+    const payloads = [];
+    if (blockRuleForm.mode.value === "date") {
+      if (!blockRuleForm.blockDate.value) {
+        blockRuleMessage.textContent = "Informe a data do bloqueio.";
+        return;
+      }
+      payloads.push({ ...base, blockType: startTime ? "period" : "date", blockDate: blockRuleForm.blockDate.value });
+    } else {
+      const weekdays = checkedWeekdays(blockRuleForm);
+      if (!weekdays.length) {
+        blockRuleMessage.textContent = "Selecione pelo menos um dia da semana.";
+        return;
+      }
+      weekdays.forEach((weekday) => payloads.push({ ...base, blockType: startTime ? "time_range" : "weekday", weekday }));
+    }
+
+    try {
+      for (const payload of payloads) await createBlockRule(payload);
+      blockRuleMessage.textContent = "Bloqueio salvo.";
+      blockRuleForm.reset();
+      updateBlockMode();
+      await loadMeetingAgenda();
+    } catch (error) {
+      blockRuleMessage.textContent = error.message || "Falha ao salvar bloqueio.";
+    }
+  });
+}
+
+if (holidayForm) {
+  holidayForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    holidayMessage.textContent = "";
+    try {
+      await createBlockRule({
+        label: holidayForm.label.value,
+        blockType: "holiday",
+        blockDate: holidayForm.blockDate.value,
+        annual: holidayForm.annual.checked,
+        persistent: true,
+      });
+      holidayMessage.textContent = "Feriado adicionado.";
+      holidayForm.reset();
+      await loadMeetingAgenda();
+    } catch (error) {
+      holidayMessage.textContent = error.message || "Falha ao salvar feriado.";
+    }
+  });
+}
+
+if (vacationForm) {
+  vacationForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    vacationMessage.textContent = "";
+    if (vacationForm.endDate.value < vacationForm.startDate.value) {
+      vacationMessage.textContent = "O ultimo dia deve ser igual ou posterior ao primeiro.";
+      return;
+    }
+    try {
+      await createBlockRule({
+        label: vacationForm.label.value,
+        blockType: "vacation",
+        blockDate: vacationForm.startDate.value,
+        endDate: vacationForm.endDate.value,
+        persistent: true,
+      });
+      vacationMessage.textContent = "Ferias programadas.";
+      vacationForm.reset();
+      await loadMeetingAgenda();
+    } catch (error) {
+      vacationMessage.textContent = error.message || "Falha ao programar ferias.";
+    }
+  });
+}
+
+if (workScheduleForm) {
+  workScheduleForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    workScheduleMessage.textContent = "";
+    const weekdays = checkedWeekdays(workScheduleForm);
+    if (!weekdays.length) {
+      workScheduleMessage.textContent = "Selecione pelo menos um dia de atendimento.";
+      return;
+    }
+    const response = await fetch("/meetings/admin/work-schedule", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: workScheduleForm.label.value,
+        weekdays,
+        startTime: workScheduleForm.startTime.value,
+        endTime: workScheduleForm.endTime.value,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      workScheduleMessage.textContent = data.message || "Falha ao salvar dias disponiveis.";
+      return;
+    }
+    workScheduleMessage.textContent = "Dias disponiveis atualizados.";
+    await loadMeetingAgenda();
+  });
+}
+
+if (lunchForm) {
+  lunchForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    lunchMessage.textContent = "";
+    try {
+      await createBlockRule({
+        label: lunchForm.label.value,
+        blockType: "lunch",
+        startTime: lunchForm.startTime.value,
+        endTime: lunchForm.endTime.value,
+        persistent: true,
+      });
+      lunchMessage.textContent = "Horario de almoco salvo.";
+      lunchForm.reset();
+      await loadMeetingAgenda();
+    } catch (error) {
+      lunchMessage.textContent = error.message || "Falha ao salvar horario de almoco.";
+    }
+  });
+}
+
+if (exceptionForm) {
+  exceptionForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    exceptionMessage.textContent = "";
+    try {
+      await createBlockRule({
+        label: exceptionForm.label.value,
+        blockType: "period",
+        blockDate: exceptionForm.blockDate.value,
+        startTime: exceptionForm.startTime.value,
+        endTime: exceptionForm.endTime.value,
+        persistent: false,
+      });
+      exceptionMessage.textContent = "Excecao adicionada.";
+      exceptionForm.reset();
+      await loadMeetingAgenda();
+    } catch (error) {
+      exceptionMessage.textContent = error.message || "Falha ao adicionar excecao.";
+    }
+  });
+}
+
+async function createWeekdayBlock(weekday, label) {
+  if (!blockRuleMessage) return;
+  blockRuleMessage.textContent = "";
+  try {
+    await createBlockRule({ label, blockType: "weekday", weekday, persistent: true });
+    blockRuleMessage.textContent = `${label} bloqueado.`;
+    await loadMeetingAgenda();
+  } catch (error) {
+    blockRuleMessage.textContent = error.message || "Falha ao criar bloqueio.";
+  }
+}
+
+if (blockSaturdayButton) blockSaturdayButton.addEventListener("click", () => createWeekdayBlock(6, "Sabados"));
+if (blockSundayButton) blockSundayButton.addEventListener("click", () => createWeekdayBlock(0, "Domingos"));
+async function loadAdminCalendar() {
+  if (!calendarGrid || !calendarForm) return;
+  setupCalendarSelectors();
+  const selectedMonth = selectedCalendarMonth();
+  calendarGrid.textContent = "Carregando calendario...";
+
+  const response = await fetch(`/meetings/admin/calendar?month=${encodeURIComponent(selectedMonth)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    calendarGrid.textContent = "Falha ao carregar calendario.";
+    return;
+  }
+
+  const data = await response.json();
+  calendarGrid.innerHTML = "";
+
+  ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"].forEach((label) => {
+    const head = document.createElement("div");
+    head.className = "calendar-head";
+    head.textContent = label;
+    calendarGrid.appendChild(head);
+  });
+
+  const firstDate = new Date(`${data.month}-01T12:00:00`);
+  for (let i = 0; i < firstDate.getDay(); i += 1) {
+    const empty = document.createElement("div");
+    empty.className = "calendar-day calendar-empty";
+    calendarGrid.appendChild(empty);
+  }
+
+  data.days.forEach((day) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `calendar-day ${day.hasBooking ? "calendar-booked" : day.blocked ? "calendar-blocked" : "calendar-available"}`;
+    button.innerHTML = `<strong>${day.day}</strong><span>${day.hasBooking ? "Reuniao" : day.blocked ? "Bloqueado" : "Livre"}</span>`;
+    button.addEventListener("click", () => loadAdminDaySchedule(day.date));
+    calendarGrid.appendChild(button);
+  });
+}
+
+async function loadAdminDaySchedule(date) {
+  if (!dayScheduleList) return;
+  dayScheduleList.textContent = "Carregando dia...";
+  const response = await fetch(`/meetings/admin/day?date=${encodeURIComponent(date)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    dayScheduleList.textContent = "Falha ao carregar dia.";
+    return;
+  }
+
+  const data = await response.json();
+  dayScheduleList.innerHTML = "";
+  const title = document.createElement("h3");
+  title.textContent = `Blocos de ${formatDateOnlyBR(data.date)}`;
+  dayScheduleList.appendChild(title);
+
+  data.blocks.forEach((block) => {
+    const row = document.createElement("div");
+    row.className = `day-slot day-slot-${block.status}`;
+    row.innerHTML = `
+      <strong>${block.startTime} - ${block.endTime}</strong>
+      <span>${block.status === "available" ? "Disponivel" : block.status === "booked" ? `Agendado: ${block.booking?.userName || "-"}` : "Bloqueado"}</span>
+    `;
+    dayScheduleList.appendChild(row);
+  });
+}
+
+if (calendarForm) {
+  calendarForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await loadAdminCalendar();
   });
 }
 
@@ -287,221 +1108,117 @@ userSearchForm.addEventListener("submit", async (event) => {
   renderUsers(users);
 });
 
-function renderDiscountUsers(users) {
-  discountList.innerHTML = "";
-  discountMessage.textContent = "";
+function renderActiveDiscounts(discounts) {
+  if (!activeDiscountsList) return;
+  activeDiscountsList.innerHTML = "";
 
-  if (!users.length) {
-    discountList.textContent = "Nenhum usuario encontrado.";
+  if (!discounts.length) {
+    activeDiscountsList.innerHTML = '<p class="empty-state">Nenhum desconto ativo ou agendado.</p>';
     return;
   }
 
-  users.forEach((user) => {
-    const item = document.createElement("div");
-    item.className = "discount-item";
-    item.innerHTML = `
-      <div class="discount-top">
-        <div class="discount-contact">
-          <strong>${user.name}</strong>
-          <div>${user.email} <span class="muted">|</span> ${user.cpf || "-"}</div>
-          <div class="muted">${user.phone || "-"}</div>
-        </div>
-        <div class="discount-controls">
-          <label>
-            Percentual (0 a 100)
-            <input class="discount-input" type="number" min="0" max="100" step="0.5" value="${user.discount_percent ?? ""}" />
-          </label>
-          <div class="discount-dates">
-            <label>
-              Inicio
-              <input class="discount-start" type="datetime-local" value="${toDateTimeLocal(user.discount_starts_at)}" />
-            </label>
-            <label>
-              Fim
-              <input class="discount-end" type="datetime-local" value="${toDateTimeLocal(user.discount_ends_at)}" />
-            </label>
-          </div>
-          <div class="discount-actions">
-            <button class="btn primary save-discount" type="button">Salvar</button>
-            <button class="btn remove clear-discount" type="button">Remover</button>
-            <span class="form-status discount-status"></span>
-          </div>
-          <p class="mini-help">
-            Dica: se deixar Inicio/Fim em branco, o desconto vale sempre. Para desativar, use Remover.
-          </p>
-        </div>
+  discounts.forEach((discount) => {
+    const card = document.createElement("article");
+    card.className = `active-discount-card ${discount.status === "active" ? "is-active" : "is-scheduled"}`;
+    const startsAt = discount.starts_at ? formatDateTimeBR(discount.starts_at) : "Imediato";
+    const endsAt = discount.ends_at ? formatDateTimeBR(discount.ends_at) : "Sem data final";
+    const isGlobal = !discount.user_id;
+    card.innerHTML = `
+      <div class="active-discount-heading">
+        <span class="discount-status-badge">${discount.status === "active" ? "Ativo" : "Agendado"}</span>
+        <strong>${Number(discount.percent).toLocaleString("pt-BR")}%</strong>
       </div>
+      <div class="active-discount-user">
+        <b>${isGlobal ? "Todos os usuarios" : discount.name}</b>
+        <span>${isGlobal ? "Desconto global" : discount.email}</span>
+        ${isGlobal ? "" : `<span>CPF: ${discount.cpf || "-"}</span>`}
+      </div>
+      <div class="active-discount-period">
+        <span><small>Inicio</small>${startsAt}</span>
+        <span><small>Fim</small>${endsAt}</span>
+      </div>
+      <button class="btn remove remove-active-discount" type="button">Remover desconto</button>
     `;
 
-    const discountInput = item.querySelector(".discount-input");
-    const discountStart = item.querySelector(".discount-start");
-    const discountEnd = item.querySelector(".discount-end");
-    const discountStatus = item.querySelector(".discount-status");
-    const saveDiscount = item.querySelector(".save-discount");
-    const clearDiscount = item.querySelector(".clear-discount");
-
-    const save = async (payload) => {
-      discountStatus.textContent = "";
-      const response = await fetch(`/admin/users/${user.id}/discount`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    card.querySelector(".remove-active-discount").addEventListener("click", async () => {
+      const response = await fetch(`/admin/discounts/${discount.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        discountStatus.textContent = data.message || "Falha ao salvar desconto.";
-        return false;
+        discountMessage.textContent = "Nao foi possivel remover o desconto.";
+        return;
       }
-
-      discountStatus.textContent = "Desconto salvo.";
-      return true;
-    };
-
-    saveDiscount.addEventListener("click", async () => {
-      const percentValue = discountInput.value === "" ? null : Number(discountInput.value);
-      const payload = {
-        percent: percentValue,
-        startsAt: discountStart.value ? new Date(discountStart.value).toISOString() : null,
-        endsAt: discountEnd.value ? new Date(discountEnd.value).toISOString() : null,
-      };
-      await save(payload);
+      await loadActiveDiscounts();
     });
 
-    clearDiscount.addEventListener("click", async () => {
-      discountInput.value = "";
-      discountStart.value = "";
-      discountEnd.value = "";
-      await save({ percent: null, startsAt: null, endsAt: null });
-    });
-
-    discountList.appendChild(item);
+    activeDiscountsList.appendChild(card);
   });
 }
 
-async function loadDiscountUsers(query) {
-  if (!discountList) return;
-  discountMessage.textContent = "";
-  discountList.textContent = "Carregando...";
-
-  const response = await fetch(`/admin/users?query=${encodeURIComponent(query)}`, {
+async function loadActiveDiscounts() {
+  if (!activeDiscountsList) return;
+  activeDiscountsList.innerHTML = '<p class="empty-state">Carregando descontos...</p>';
+  const response = await fetch("/admin/discounts", {
     headers: { Authorization: `Bearer ${token}` },
   });
-
   if (!response.ok) {
-    discountList.textContent = "";
-    discountMessage.textContent = "Falha ao buscar usuarios.";
+    activeDiscountsList.innerHTML = '<p class="empty-state error">Falha ao carregar descontos.</p>';
     return;
   }
-
-  const users = await response.json();
-  renderDiscountUsers(users);
+  renderActiveDiscounts(await response.json());
 }
 
-if (discountSearchForm) {
-  discountSearchForm.addEventListener("submit", async (event) => {
+if (refreshDiscountsButton) {
+  refreshDiscountsButton.addEventListener("click", loadActiveDiscounts);
+}
+
+if (discountForm) {
+  discountForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const query = discountSearchForm.query.value.trim();
-    if (!query) {
-      discountMessage.textContent = "Informe email ou CPF.";
+    discountMessage.textContent = "";
+
+    const percent = Number(discountForm.percent.value);
+    const startsAt = discountForm.startsAt.value
+      ? new Date(discountForm.startsAt.value).toISOString()
+      : null;
+    const endsAt = discountForm.endsAt.value
+      ? new Date(discountForm.endsAt.value).toISOString()
+      : null;
+
+    if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+      discountMessage.textContent = "Informe um percentual maior que 0 e menor ou igual a 100.";
       return;
     }
-    await loadDiscountUsers(query);
-  });
-}
-
-async function fetchBudgetSettingsContent() {
-  const response = await fetch("/admin/budget-settings", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!response.ok) return null;
-  const data = await response.json();
-  return data?.content || {};
-}
-
-function fillGlobalDiscountForm(globalDiscount) {
-  if (!globalDiscountForm) return;
-  globalDiscountForm.percent.value =
-    globalDiscount && globalDiscount.percent !== undefined && globalDiscount.percent !== null
-      ? String(globalDiscount.percent)
-      : "";
-  globalDiscountForm.startsAt.value = toDateTimeLocal(globalDiscount?.startsAt);
-  globalDiscountForm.endsAt.value = toDateTimeLocal(globalDiscount?.endsAt);
-}
-
-async function loadGlobalDiscount() {
-  if (!globalDiscountForm) return;
-  if (globalDiscountMessage) globalDiscountMessage.textContent = "";
-
-  const content = await fetchBudgetSettingsContent();
-  if (!content) return;
-
-  budgetSettingsState = content;
-  fillGlobalDiscountForm(content.globalDiscount || null);
-}
-
-async function saveGlobalDiscount(payload) {
-  const content = await fetchBudgetSettingsContent();
-  if (!content) {
-    if (globalDiscountMessage) globalDiscountMessage.textContent = "Falha ao carregar configuracao.";
-    return false;
-  }
-
-  const next = { ...content, globalDiscount: payload };
-  const response = await fetch("/admin/budget-settings", {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(next),
-  });
-
-  if (!response.ok) {
-    if (globalDiscountMessage) globalDiscountMessage.textContent = "Falha ao salvar desconto global.";
-    return false;
-  }
-
-  budgetSettingsState = next;
-  if (globalDiscountMessage) globalDiscountMessage.textContent = "Desconto global salvo.";
-  return true;
-}
-
-if (globalDiscountForm) {
-  globalDiscountForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (globalDiscountMessage) globalDiscountMessage.textContent = "";
-
-    const percentRaw = String(globalDiscountForm.percent.value || "").trim();
-    const percent = percentRaw === "" ? null : Number(percentRaw);
-
-    if (percent !== null && (!Number.isFinite(percent) || percent < 0 || percent > 100)) {
-      if (globalDiscountMessage) globalDiscountMessage.textContent = "Percentual deve ser entre 0 e 100.";
+    if (startsAt && endsAt && new Date(endsAt) <= new Date(startsAt)) {
+      discountMessage.textContent = "A data final deve ser posterior a data inicial.";
       return;
     }
 
-    const startsAt = globalDiscountForm.startsAt.value
-      ? new Date(globalDiscountForm.startsAt.value).toISOString()
-      : null;
-    const endsAt = globalDiscountForm.endsAt.value
-      ? new Date(globalDiscountForm.endsAt.value).toISOString()
-      : null;
-
-    await saveGlobalDiscount(percent === null ? null : { percent, startsAt, endsAt });
-  });
-}
-
-if (clearGlobalDiscountButton) {
-  clearGlobalDiscountButton.addEventListener("click", async () => {
-    if (globalDiscountForm) {
-      globalDiscountForm.percent.value = "";
-      globalDiscountForm.startsAt.value = "";
-      globalDiscountForm.endsAt.value = "";
+    const response = await fetch("/admin/discounts", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userQuery: discountForm.userQuery.value.trim(),
+        percent,
+        startsAt,
+        endsAt,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      discountMessage.textContent = data.message || "Falha ao adicionar desconto.";
+      return;
     }
-    await saveGlobalDiscount(null);
+
+    discountMessage.textContent = discountForm.userQuery.value.trim()
+      ? "Desconto individual adicionado."
+      : "Desconto global adicionado.";
+    discountForm.reset();
+    await loadActiveDiscounts();
   });
 }
 
@@ -562,9 +1279,24 @@ function renderBudgets(items) {
         <div>${item.user_phone || "-"}</div>
         <div>${addressLine || "-"}</div>
         <div>Criado em: ${formatDate(item.created_at) || "-"}</div>
-        <div>Status: ${item.accepted ? "Ativo" : "Recusado"}</div>
+        <div>Orcamento: ${item.accepted ? "Aceito" : "Recusado"}</div>
+        <div>Contrato: ${item.contract_active ? "Ativo" : "Inativo"}</div>
       </div>
     `;
+
+    const controls = document.createElement("div");
+    controls.className = "form-actions";
+    const timelineButton = document.createElement("button");
+    timelineButton.className = "btn ghost";
+    timelineButton.type = "button";
+    timelineButton.textContent = "Abrir timeline deste contrato";
+    timelineButton.disabled = !item.accepted;
+    timelineButton.addEventListener("click", async () => {
+      setActiveTab("timeline");
+      if (timelineSearchForm) timelineSearchForm.budgetId.value = item.id;
+      await loadTimelineForBudgetId(item.id);
+    });
+    controls.appendChild(timelineButton);
 
     const answers = document.createElement("pre");
     answers.className = "code-block";
@@ -572,6 +1304,7 @@ function renderBudgets(items) {
 
     wrapper.appendChild(summary);
     wrapper.appendChild(contact);
+    wrapper.appendChild(controls);
     wrapper.appendChild(answers);
     budgetList.appendChild(wrapper);
   });
