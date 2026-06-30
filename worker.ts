@@ -10,6 +10,8 @@ function isApiPath(pathname: string): boolean {
     pathname.startsWith("/admin/") ||
     pathname.startsWith("/budget/") ||
     pathname.startsWith("/budgets/") ||
+    pathname.startsWith("/timeline/") ||
+    pathname.startsWith("/meetings/") ||
     pathname.startsWith("/utils/")
   );
 }
@@ -61,4 +63,3 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
-

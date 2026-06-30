@@ -13,8 +13,7 @@
     "nodejs_compat"
   ],
   "vars": {
-    // Base URL of your Docker API (example: "https://api.seu-dominio.com")
-    // If not set, API routes will return 500.
-    "API_ORIGIN": ""
+    // Public URL of the Node API hosted on Railway.
+    "API_ORIGIN": "https://engenheiro-platform-backend-production.up.railway.app"
   }
 }
